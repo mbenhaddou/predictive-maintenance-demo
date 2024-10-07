@@ -38,7 +38,7 @@ model_path = '../../Output/regression_model.h5'
 # read training data - It is the aircraft engine run-to-failure data.
 train_df = pd.read_csv('../../Dataset/PM_train.txt', sep=" ", header=None)
 train_df.drop(train_df.columns[[26, 27]], axis=1, inplace=True)
-train_df.columns = ['id', 'cycle', 'fuel_flow', 'motot_speed', 'Fan_speed', 's1', 's2', 's3',
+train_df.columns = ['id', 'cycle', 'voltage_input', 'current_limit', 'speed_control', 's1', 's2', 's3',
                      's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14',
                      's15', 's16', 's17', 's18', 's19', 's20', 's21']
 
@@ -47,7 +47,7 @@ train_df = train_df.sort_values(['id','cycle'])
 # read test data - It is the aircraft engine operating data without failure events recorded.
 test_df = pd.read_csv('../../Dataset/PM_test.txt', sep=" ", header=None)
 test_df.drop(test_df.columns[[26, 27]], axis=1, inplace=True)
-test_df.columns = ['id', 'cycle', 'fuel_flow', 'motot_speed', 'Fan_speed', 's1', 's2', 's3',
+test_df.columns = ['id', 'cycle','voltage_input', 'current_limit', 'speed_control', 's1', 's2', 's3',
                      's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14',
                      's15', 's16', 's17', 's18', 's19', 's20', 's21']
 
@@ -148,7 +148,7 @@ def gen_sequence(id_df, seq_length, seq_cols):
         
 # pick the feature columns 
 sensor_cols = ['s' + str(i) for i in range(1,22)]
-sequence_cols = ['fuel_flow', 'motot_speed', 'Fan_speed', 'cycle_norm']
+sequence_cols = ['voltage_input', 'current_limit', 'speed_control', 'cycle_norm']
 sequence_cols.extend(sensor_cols)
 
 # TODO for debug 

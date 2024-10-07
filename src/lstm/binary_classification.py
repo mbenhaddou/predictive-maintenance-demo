@@ -94,7 +94,7 @@ class DataLoader:
         Reads a data file and assigns column names.
         """
         df = pd.read_csv(os.path.join(self.dataset_path, filename), sep="\s+", header=None)
-        df.columns = ['id', 'cycle',  'fuel_flow', 'motot_speed', 'Fan_speed'] + \
+        df.columns = ['id', 'cycle',  'voltage_input', 'current_limit', 'speed_control'] + \
                      [f's{i}' for i in range(1, 22)]
         return df
 
@@ -113,7 +113,7 @@ class DataLoader:
         self.test_df = self._prepare_test_df()
         # Define sequence columns
         sensor_cols = [f's{i}' for i in range(1, 22)]
-        self.sequence_cols = ['fuel_flow', 'motot_speed', 'Fan_speed', 'cycle'] + sensor_cols
+        self.sequence_cols = ['voltage_input', 'current_limit', 'speed_control', 'cycle'] + sensor_cols
         self.nb_features = len(self.sequence_cols)
 
     def _add_RUL(self, df):
@@ -154,7 +154,7 @@ class DataLoader:
         """
         max_cycle = self.test_df.groupby('id')['cycle'].max().reset_index()
         max_cycle.columns = ['id', 'max_cycle']
-        self.truth_df['id'] = self.truth_df.index + 1
+        self.truth_df['id'] = self.truth_df.index + 1+22510000
         self.truth_df['max_cycle'] = max_cycle['max_cycle'] + self.truth_df['RUL']
         test_df = self.test_df.merge(self.truth_df[['id', 'max_cycle']], on='id', how='left')
         test_df['RUL'] = test_df['max_cycle'] - test_df['cycle']
