@@ -94,7 +94,7 @@ class DataLoader:
         Reads a data file and assigns column names.
         """
         df = pd.read_csv(os.path.join(self.dataset_path, filename), sep="\s+", header=None)
-        df.columns = ['id', 'cycle', 'setting1', 'setting2', 'setting3'] + \
+        df.columns = ['id', 'cycle',  'fuel_flow', 'motot_speed', 'Fan_speed'] + \
                      [f's{i}' for i in range(1, 22)]
         return df
 
@@ -113,7 +113,7 @@ class DataLoader:
         self.test_df = self._prepare_test_df()
         # Define sequence columns
         sensor_cols = [f's{i}' for i in range(1, 22)]
-        self.sequence_cols = ['fuel_flow', 'Temperature', 'Fan_speed', 'cycle'] + sensor_cols
+        self.sequence_cols = ['fuel_flow', 'motot_speed', 'Fan_speed', 'cycle'] + sensor_cols
         self.nb_features = len(self.sequence_cols)
 
     def _add_RUL(self, df):
