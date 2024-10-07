@@ -1,0 +1,21 @@
+Sensor Name,Description,Abbreviation
+S1,Fan Inlet Temperature,FIT
+S2,LPC Outlet Temperature,LPCOT
+S3,HPC Outlet Temperature,HPCOT
+S4,LPT Outlet Temperature,LPTOT
+S5,Fan Inlet Pressure,FIP
+S6,LPC Outlet Pressure,LPCOP
+S7,HPC Outlet Pressure,HPCOP
+S8,LPT Outlet Pressure,LPTOP
+S9,Physical Fan Speed,PFS
+S10,Physical Core Speed,PCS
+S11,Engine Pressure Ratio,EPR
+S12,Burner Fuel-Air Ratio,BFAR
+S13,Fuel Flow Ratio to Burner,FFRB
+S14,HPC Outlet Stall Margin,HPCOSM
+S15,LPC Outlet Stall Margin,LPCOSM
+S16,High-Pressure Turbine Clearance,HPTC
+S17,Low-Pressure Turbine Clearance,LPTC
+S18,High-Pressure Turbine Temperature,HPTT
+S19,Exhaust Gas Temperature,EGT
+S20,Combustion Chamber Pressure,CCP

@@ -251,8 +251,8 @@ def main():
             sensor_options = [col for col in sequence_cols if col.startswith('s')]
             selected_features = st.multiselect(
                 "Select Features to Visualize",
-                options=['setting1', 'setting2', 'setting3'] + sensor_options,
-                default=['setting1', 's1', 's2'],
+                options=['fuel_flow', 'motot_speed', 'Fan_speed'] + sensor_options,
+                default=['fuel_flow', 's1', 's2'],
                 help="Choose a subset of features to display in real-time."
             )
 
