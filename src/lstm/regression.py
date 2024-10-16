@@ -1,331 +1,247 @@
-'''
-Created on 06 lug 2017
-
-@author: mantica
-
-References:
-    - https://github.com/Azure/lstms_for_predictive_maintenance/blob/master/Deep%20Learning%20Basics%20for%20Predictive%20Maintenance.ipynb
-    - https://gallery.cortanaintelligence.com/Experiment/Predictive-Maintenance-Step-2A-of-3-train-and-evaluate-regression-models-2
-    - https://ti.arc.nasa.gov/tech/dash/pcoe/prognostic-data-repository/#turbofan
-
-Regression models: How many more cycles an in-service engine will last before it fails?
-
-'''
-
-import keras
-import keras.backend as K
-from keras.layers.core import Activation
-from keras.models import Sequential,load_model
-from keras.layers import Dense, Dropout, LSTM
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import os
-from sklearn import preprocessing
+import random
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Setting seed for reproducibility
-np.random.seed(1234)  
-PYTHONHASHSEED = 0
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import GroupShuffleSplit
 
-# define path to save model
-model_path = '../../Output/regression_model.h5'
+import tensorflow as tf
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Masking
+from tensorflow.keras.callbacks import EarlyStopping
 
-##################################
-# Data Ingestion
-##################################
+sns.set()
 
-# read training data - It is the aircraft engine run-to-failure data.
-train_df = pd.read_csv('../../Dataset/PM_train.txt', sep=" ", header=None)
-train_df.drop(train_df.columns[[26, 27]], axis=1, inplace=True)
-train_df.columns = ['id', 'cycle', 'voltage_input', 'current_limit', 'speed_control', 's1', 's2', 's3',
-                     's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14',
-                     's15', 's16', 's17', 's18', 's19', 's20', 's21']
 
-train_df = train_df.sort_values(['id','cycle'])
+class PredictiveMaintenanceModel:
+    def __init__(self, seed=42):
+        # Set seeds for reproducibility
+        self.seed = seed
+        os.environ['PYTHONHASHSEED'] = str(seed)
+        random.seed(seed)
+        np.random.seed(seed)
+        tf.random.set_seed(seed)
 
-# read test data - It is the aircraft engine operating data without failure events recorded.
-test_df = pd.read_csv('../../Dataset/PM_test.txt', sep=" ", header=None)
-test_df.drop(test_df.columns[[26, 27]], axis=1, inplace=True)
-test_df.columns = ['id', 'cycle','voltage_input', 'current_limit', 'speed_control', 's1', 's2', 's3',
-                     's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12', 's13', 's14',
-                     's15', 's16', 's17', 's18', 's19', 's20', 's21']
+        # Initialize variables
+        self.dir_path = '../../Dataset/'
+        self.train_file = 'PM_train.txt'
+        self.test_file = 'PM_test.txt'
+        self.truth_file = 'PM_truth.txt'
+        self.index_names = ['unit_nr', 'time_cycles']
+        self.setting_names = ['setting_1', 'setting_2', 'setting_3']
+        self.sensor_names = ['s_{}'.format(i + 1) for i in range(21)]
+        self.col_names = self.index_names + self.setting_names + self.sensor_names
 
-# read ground truth data - It contains the information of true remaining cycles for each engine in the testing data.
-truth_df = pd.read_csv('../../Dataset/PM_truth.txt', sep=" ", header=None)
-truth_df.drop(truth_df.columns[[1]], axis=1, inplace=True)
+        # Data placeholders
+        self.train = None
+        self.test = None
+        self.y_test = None
+        self.remaining_sensors = ['s_2', 's_3', 's_4', 's_7', 's_8', 's_9',
+                                  's_11', 's_12', 's_13', 's_14', 's_15',
+                                  's_17', 's_20', 's_21']
+        self.drop_sensors = [sensor for sensor in self.sensor_names if sensor not in self.remaining_sensors]
+        self.sequence_length = 30  # Default sequence length
+        self.alpha = 0.1  # Default smoothing factor
+        self.model = None
+        self.history = None
 
-##################################
-# Data Preprocessing
-##################################
+    def load_data(self):
+        # Load training data
+        self.train = pd.read_csv(os.path.join(self.dir_path, self.train_file), sep='\s+', header=None,
+                                 names=self.col_names)
+        self.train = self.train.sort_values(['unit_nr', 'time_cycles'])
 
-#######
-# TRAIN
-#######
-# Data Labeling - generate column RUL(Remaining Usefull Life or Time to Failure)
-rul = pd.DataFrame(train_df.groupby('id')['cycle'].max()).reset_index()
-rul.columns = ['id', 'max']
-train_df = train_df.merge(rul, on=['id'], how='left')
-train_df['RUL'] = train_df['max'] - train_df['cycle']
-train_df.drop('max', axis=1, inplace=True)
+        # Load test data
+        self.test = pd.read_csv(os.path.join(self.dir_path, self.test_file), sep='\s+', header=None,
+                                names=self.col_names)
+        self.test = self.test.sort_values(['unit_nr', 'time_cycles'])
 
-# generate label columns for training data
-# we will only make use of "label1" for binary classification, 
-# while trying to answer the question: is a specific engine going to fail within w1 cycles?
-w1 = 30
-w0 = 15
-train_df['label1'] = np.where(train_df['RUL'] <= w1, 1, 0 )
-train_df['label2'] = train_df['label1']
-train_df.loc[train_df['RUL'] <= w0, 'label2'] = 2
+        # Load RUL data for test set
+        self.y_test = pd.read_csv(os.path.join(self.dir_path, self.truth_file), sep='\s+', header=None, names=['RUL'])
+        self.y_test['unit_nr'] = self.y_test.index + 1 + 22510000
 
-# MinMax normalization (from 0 to 1)
-train_df['cycle_norm'] = train_df['cycle']
-cols_normalize = train_df.columns.difference(['id','cycle','RUL','label1','label2'])
-min_max_scaler = preprocessing.MinMaxScaler()
-norm_train_df = pd.DataFrame(min_max_scaler.fit_transform(train_df[cols_normalize]), 
-                             columns=cols_normalize, 
-                             index=train_df.index)
-join_df = train_df[train_df.columns.difference(cols_normalize)].join(norm_train_df)
-train_df = join_df.reindex(columns = train_df.columns)
+        print("Data loaded successfully.")
 
-#train_df.to_csv('../../Dataset/PredictiveManteinanceEngineTraining.csv', encoding='utf-8',index = None)
+    def add_remaining_useful_life(self, df):
+        # Calculate RUL
+        df_max_cycle = df.groupby('unit_nr')['time_cycles'].max().reset_index()
+        df_max_cycle.columns = ['unit_nr', 'max_cycle']
+        df = df.merge(df_max_cycle, on='unit_nr', how='left')
+        df['RUL'] = df['max_cycle'] - df['time_cycles']
+        df.drop('max_cycle', axis=1, inplace=True)
+        return df
 
-######
-# TEST
-######
-# MinMax normalization (from 0 to 1)
-test_df['cycle_norm'] = test_df['cycle']
-norm_test_df = pd.DataFrame(min_max_scaler.transform(test_df[cols_normalize]), 
-                            columns=cols_normalize, 
-                            index=test_df.index)
-test_join_df = test_df[test_df.columns.difference(cols_normalize)].join(norm_test_df)
-test_df = test_join_df.reindex(columns = test_df.columns)
-test_df = test_df.reset_index(drop=True)
-print(test_df.head())
+    def preprocess_data(self):
+        # Add RUL to training data
+        self.train = self.add_remaining_useful_life(self.train)
+        self.train['RUL'].clip(upper=125, inplace=True)
 
-# We use the ground truth dataset to generate labels for the test data.
-# generate column max for test data
-rul = pd.DataFrame(test_df.groupby('id')['cycle'].max()).reset_index()
-rul.columns = ['id', 'max']
-truth_df.columns = ['more']
-truth_df['id'] = truth_df.index + 1
-truth_df['max'] = rul['max'] + truth_df['more']
-truth_df.drop('more', axis=1, inplace=True)
+        # Prepare test data RUL
+        max_cycles = self.test.groupby('unit_nr')['time_cycles'].max().reset_index()
+        max_cycles.columns = ['unit_nr', 'max_cycle']
+        self.y_test = self.y_test.merge(max_cycles, on='unit_nr', how='left')
+        self.y_test['RUL'] = self.y_test['RUL'] + self.y_test['max_cycle']
+        self.y_test.drop('max_cycle', axis=1, inplace=True)
+        self.y_test.set_index('unit_nr', inplace=True)
 
-# generate RUL for test data
-test_df = test_df.merge(truth_df, on=['id'], how='left')
-test_df['RUL'] = test_df['max'] - test_df['cycle']
-test_df.drop('max', axis=1, inplace=True)
+        print("Data preprocessed successfully.")
 
-# generate label columns w0 and w1 for test data
-test_df['label1'] = np.where(test_df['RUL'] <= w1, 1, 0 )
-test_df['label2'] = test_df['label1']
-test_df.loc[test_df['RUL'] <= w0, 'label2'] = 2
+    def add_operating_condition(self, df):
+        df = df.copy()
+        df['setting_1'] = df['setting_1'].round()
+        df['setting_2'] = df['setting_2'].round(2)
+        df['op_cond'] = df['setting_1'].astype(str) + '_' + df['setting_2'].astype(str) + '_' + df['setting_3'].astype(
+            str)
+        return df
 
-#test_df.to_csv('../../Dataset/PredictiveManteinanceEngineValidation.csv', encoding='utf-8',index = None)
+    def condition_scaler(self, df_train, df_test):
+        scaler = StandardScaler()
+        for condition in df_train['op_cond'].unique():
+            condition_mask_train = df_train['op_cond'] == condition
+            condition_mask_test = df_test['op_cond'] == condition
+            scaler.fit(df_train.loc[condition_mask_train, self.remaining_sensors])
+            df_train.loc[condition_mask_train, self.remaining_sensors] = scaler.transform(
+                df_train.loc[condition_mask_train, self.remaining_sensors])
+            df_test.loc[condition_mask_test, self.remaining_sensors] = scaler.transform(
+                df_test.loc[condition_mask_test, self.remaining_sensors])
+        return df_train, df_test
 
-# pick a large window size of 50 cycles
-sequence_length = 50
+    def exponential_smoothing(self, df, n_samples=0, alpha=0.4):
+        df = df.copy()
+        # Create an empty DataFrame to store the smoothed values
+        smoothed_values = pd.DataFrame(index=df.index, columns=self.remaining_sensors)
+        # Group by 'unit_nr' and apply exponential smoothing to each group
+        for unit_nr, group in df.groupby('unit_nr'):
+            smoothed_group = group[self.remaining_sensors].ewm(alpha=alpha).mean()
+            smoothed_values.loc[group.index] = smoothed_group.values
+        # Assign the smoothed values back to the DataFrame
+        df[self.remaining_sensors] = smoothed_values
+        if n_samples > 0:
+            mask = df.groupby('unit_nr')['unit_nr'].transform(lambda x: np.arange(len(x)) >= n_samples)
+            df = df[mask]
+        return df
 
-# function to reshape features into (samples, time steps, features) 
-def gen_sequence(id_df, seq_length, seq_cols):
-    """ Only sequences that meet the window-length are considered, no padding is used. This means for testing
-    we need to drop those which are below the window-length. An alternative would be to pad sequences so that
-    we can use shorter ones """
-    # for one id I put all the rows in a single matrix
-    data_matrix = id_df[seq_cols].values
-    num_elements = data_matrix.shape[0]
-    # Iterate over two lists in parallel.
-    # For example id1 have 192 rows and sequence_length is equal to 50
-    # so zip iterate over two following list of numbers (0,112),(50,192)
-    # 0 50 -> from row 0 to row 50
-    # 1 51 -> from row 1 to row 51
-    # 2 52 -> from row 2 to row 52
-    # ...
-    # 111 191 -> from row 111 to 191
-    for start, stop in zip(range(0, num_elements-seq_length), range(seq_length, num_elements)):
-        yield data_matrix[start:stop, :]
-        
-# pick the feature columns 
-sensor_cols = ['s' + str(i) for i in range(1,22)]
-sequence_cols = ['voltage_input', 'current_limit', 'speed_control', 'cycle_norm']
-sequence_cols.extend(sensor_cols)
+    def generate_sequences(self, df, sequence_length):
+        data_gen = []
+        label_gen = []
+        unit_nrs = df['unit_nr'].unique()
+        for unit_nr in unit_nrs:
+            unit_data = df[df['unit_nr'] == unit_nr]
+            data = unit_data[self.remaining_sensors].values.astype(np.float32)  # Ensure data type
+            labels = unit_data['RUL'].values.astype(np.float32)  # Ensure data type
+            num_elements = data.shape[0]
+            for start, stop in zip(range(0, num_elements - sequence_length + 1),
+                                   range(sequence_length, num_elements + 1)):
+                data_gen.append(data[start:stop])
+                label_gen.append(labels[stop - 1])
+        data_array = np.array(data_gen, dtype=np.float32)
+        label_array = np.array(label_gen, dtype=np.float32)
+        return data_array, label_array
 
-# TODO for debug 
-# val is a list of 192 - 50 = 142 bi-dimensional array (50 rows x 25 columns)
-val=list(gen_sequence(train_df[train_df['id']==1], sequence_length, sequence_cols))
-print(len(val))
+    def generate_test_sequences(self, df, sequence_length):
+        data_gen = []
+        unit_nrs = df['unit_nr'].unique()
+        for unit_nr in unit_nrs:
+            unit_data = df[df['unit_nr'] == unit_nr]
+            data = unit_data[self.remaining_sensors].values.astype(np.float32)  # Ensure data type
+            if data.shape[0] < sequence_length:
+                # Pad sequences shorter than sequence_length
+                padding = np.full((sequence_length - data.shape[0], len(self.remaining_sensors)), -99.,
+                                  dtype=np.float32)
+                data_padded = np.vstack((padding, data))
+            else:
+                data_padded = data[-sequence_length:]
+            data_gen.append(data_padded)
+        data_array = np.array(data_gen, dtype=np.float32)
+        return data_array
 
-# generator for the sequences
-# transform each id of the train dataset in a sequence
-seq_gen = (list(gen_sequence(train_df[train_df['id']==id], sequence_length, sequence_cols)) 
-           for id in train_df['id'].unique())
+    def build_model(self, input_shape, nodes_per_layer=[256], dropout=0.1, activation='sigmoid'):
+        model = Sequential()
+        model.add(Masking(mask_value=-99., input_shape=input_shape))
+        for idx, nodes in enumerate(nodes_per_layer):
+            return_sequences = idx < len(nodes_per_layer) - 1
+            model.add(LSTM(nodes, activation=activation, return_sequences=return_sequences))
+            model.add(Dropout(dropout))
+        model.add(Dense(1))
+        model.compile(loss='mean_squared_error', optimizer='adam')
+        self.model = model
+        print("Model built successfully.")
 
-# generate sequences and convert to numpy array
-seq_array = np.concatenate(list(seq_gen)).astype(np.float32)
-print(seq_array.shape)
+    def train_model(self, X_train, y_train, epochs=15, batch_size=128):
+        # Check data types
+        print(f'X_train dtype: {X_train.dtype}')
+        print(f'y_train dtype: {y_train.dtype}')
 
-# function to generate labels
-def gen_labels(id_df, seq_length, label):
-    """ Only sequences that meet the window-length are considered, no padding is used. This means for testing
-    we need to drop those which are below the window-length. An alternative would be to pad sequences so that
-    we can use shorter ones """
-    # For one id I put all the labels in a single matrix.
-    # For example:
-    # [[1]
-    # [4]
-    # [1]
-    # [5]
-    # [9]
-    # ...
-    # [200]] 
-    data_matrix = id_df[label].values
-    num_elements = data_matrix.shape[0]
-    # I have to remove the first seq_length labels
-    # because for one id the first sequence of seq_length size have as target
-    # the last label (the previus ones are discarded).
-    # All the next id's sequences will have associated step by step one label as target.
-    return data_matrix[seq_length:num_elements, :]
+        # Check for NaN or None values
+        print(f'X_train contains NaN: {np.isnan(X_train).any()}')
+        print(f'y_train contains NaN: {np.isnan(y_train).any()}')
+        print(f'X_train contains None: {np.any([x is None for x in X_train.flatten()])}')
+        print(f'y_train contains None: {np.any([x is None for x in y_train.flatten()])}')
 
-# generate labels
-label_gen = [gen_labels(train_df[train_df['id']==id], sequence_length, ['RUL']) 
-             for id in train_df['id'].unique()]
+        early_stopping = EarlyStopping(monitor='loss', patience=5)
+        self.history = self.model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,
+                                      callbacks=[early_stopping])
+        print("Model trained successfully.")
 
-label_array = np.concatenate(label_gen).astype(np.float32)
-label_array.shape
+    def evaluate_model(self, X, y_true, dataset='Train'):
+        y_pred = self.model.predict(X)
+        mse = mean_squared_error(y_true, y_pred)
+        rmse = np.sqrt(mse)
+        variance = r2_score(y_true, y_pred)
+        print(f'{dataset} set RMSE: {rmse:.4f}, R2: {variance:.4f}')
+        return y_pred
 
-##################################
-# Modeling
-##################################
+    def plot_loss(self):
+        plt.figure(figsize=(10, 5))
+        plt.plot(self.history.history['loss'], label='Train Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.show()
 
-def r2_keras(y_true, y_pred):
-    """Coefficient of Determination 
-    """
-    SS_res =  K.sum(K.square( y_true - y_pred ))
-    SS_tot = K.sum(K.square( y_true - K.mean(y_true) ) )
-    return ( 1 - SS_res/(SS_tot + K.epsilon()) )
+    def run(self):
+        # Load data
+        self.load_data()
 
-# Next, we build a deep network. 
-# The first layer is an LSTM layer with 100 units followed by another LSTM layer with 50 units. 
-# Dropout is also applied after each LSTM layer to control overfitting. 
-# Final layer is a Dense output layer with single unit and linear activation since this is a regression problem.
-nb_features = seq_array.shape[2]
-nb_out = label_array.shape[1]
+        # Preprocess data
+        self.preprocess_data()
 
-model = Sequential()
-model.add(LSTM(
-         input_shape=(sequence_length, nb_features),
-         units=100,
-         return_sequences=True))
-model.add(Dropout(0.2))
-model.add(LSTM(
-          units=50,
-          return_sequences=False))
-model.add(Dropout(0.2))
-model.add(Dense(units=nb_out))
-model.add(Activation("linear"))
-model.compile(loss='mean_squared_error', optimizer='rmsprop',metrics=['mae',r2_keras])
+        # Prepare training data
+        X_train = self.add_operating_condition(self.train.drop(self.drop_sensors, axis=1))
+        X_test = self.add_operating_condition(self.test.drop(self.drop_sensors, axis=1))
+        X_train, X_test = self.condition_scaler(X_train, X_test)
+        X_train = self.exponential_smoothing(X_train, alpha=self.alpha)
+        X_test = self.exponential_smoothing(X_test, alpha=self.alpha)
 
-print(model.summary())
+        # Generate sequences
+        train_array, label_array = self.generate_sequences(X_train, self.sequence_length)
+        test_array = self.generate_test_sequences(X_test, self.sequence_length)
+        y_test_array = self.y_test['RUL'].values
 
-# fit the network
-history = model.fit(seq_array, label_array, epochs=100, batch_size=200, validation_split=0.05, verbose=2,
-          callbacks = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=0, mode='min'),
-                       keras.callbacks.ModelCheckpoint(model_path,monitor='val_loss', save_best_only=True, mode='min', verbose=0)]
-          )
+        # Build model
+        input_shape = (self.sequence_length, len(self.remaining_sensors))
+        self.build_model(input_shape, nodes_per_layer=[256], dropout=0.1, activation='sigmoid')
 
-# list all data in history
-print(history.history.keys())
+        # Train model
+        self.train_model(train_array, label_array, epochs=15, batch_size=128)
 
-# summarize history for R^2
-fig_acc = plt.figure(figsize=(10, 10))
-plt.plot(history.history['r2_keras'])
-plt.plot(history.history['val_r2_keras'])
-plt.title('model r^2')
-plt.ylabel('R^2')
-plt.xlabel('epoch')
-plt.legend(['train', 'test'], loc='upper left')
-plt.show()
-fig_acc.savefig("../../Output/model_r2.png")
+        # Plot loss
+        self.plot_loss()
 
-# summarize history for MAE
-fig_acc = plt.figure(figsize=(10, 10))
-plt.plot(history.history['mean_absolute_error'])
-plt.plot(history.history['val_mean_absolute_error'])
-plt.title('model MAE')
-plt.ylabel('MAE')
-plt.xlabel('epoch')
-plt.legend(['train', 'test'], loc='upper left')
-plt.show()
-fig_acc.savefig("../../Output/model_mae.png")
+        # Evaluate model
+        print("\nEvaluating on Training Data:")
+        self.evaluate_model(train_array, label_array, dataset='Train')
 
-# summarize history for Loss
-fig_acc = plt.figure(figsize=(10, 10))
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('model loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['train', 'test'], loc='upper left')
-plt.show()
-fig_acc.savefig("../../Output/model_regression_loss.png")
+        print("\nEvaluating on Test Data:")
+        self.evaluate_model(test_array, y_test_array, dataset='Test')
 
-# training metrics
-scores = model.evaluate(seq_array, label_array, verbose=1, batch_size=200)
-print('\nMAE: {}'.format(scores[1]))
-print('\nR^2: {}'.format(scores[2]))
 
-y_pred = model.predict(seq_array,verbose=1, batch_size=200)
-y_true = label_array
-
-test_set = pd.DataFrame(y_pred)
-test_set.to_csv('../../Output/submit_train.csv', index = None)
-
-##################################
-# EVALUATE ON TEST DATA
-##################################
-
-# We pick the last sequence for each id in the test data
-seq_array_test_last = [test_df[test_df['id']==id][sequence_cols].values[-sequence_length:] 
-                       for id in test_df['id'].unique() if len(test_df[test_df['id']==id]) >= sequence_length]
-
-seq_array_test_last = np.asarray(seq_array_test_last).astype(np.float32)
-print("seq_array_test_last")
-#print(seq_array_test_last)
-print(seq_array_test_last.shape)
-
-# Similarly, we pick the labels
-#print("y_mask")
-y_mask = [len(test_df[test_df['id']==id]) >= sequence_length for id in test_df['id'].unique()]
-label_array_test_last = test_df.groupby('id')['RUL'].nth(-1)[y_mask].values
-label_array_test_last = label_array_test_last.reshape(label_array_test_last.shape[0],1).astype(np.float32)
-print(label_array_test_last.shape)
-print("label_array_test_last")
-print(label_array_test_last)
-
-# if best iteration's model was saved then load and use it
-if os.path.isfile(model_path):
-    estimator = load_model(model_path,custom_objects={'r2_keras': r2_keras})
-
-    # test metrics
-    scores_test = estimator.evaluate(seq_array_test_last, label_array_test_last, verbose=2)
-    print('\nMAE: {}'.format(scores_test[1]))
-    print('\nR^2: {}'.format(scores_test[2]))
-
-    y_pred_test = estimator.predict(seq_array_test_last)
-    y_true_test = label_array_test_last
-
-    test_set = pd.DataFrame(y_pred_test)
-    test_set.to_csv('../../Output/submit_test.csv', index = None)
-
-    # Plot in blue color the predicted data and in green color the
-    # actual data to verify visually the accuracy of the model.
-    fig_verify = plt.figure(figsize=(100, 50))
-    plt.plot(y_pred_test, color="blue")
-    plt.plot(y_true_test, color="green")
-    plt.title('prediction')
-    plt.ylabel('value')
-    plt.xlabel('row')
-    plt.legend(['predicted', 'actual data'], loc='upper left')
-    plt.show()
-    fig_verify.savefig("../../Output/model_regression_verify.png")
+# Instantiate and run the model
+if __name__ == "__main__":
+    pm_model = PredictiveMaintenanceModel()
+    pm_model.run()

@@ -1,7 +1,6 @@
 # callbacks.py
 
 import tensorflow as tf
-import streamlit as st
 
 class StreamlitCallback(tf.keras.callbacks.Callback):
     def __init__(self, epochs, progress_bar, status_text, output_type='binary'):

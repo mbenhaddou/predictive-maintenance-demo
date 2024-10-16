@@ -1,0 +1,21 @@
+{
+    "OUTPUT_TYPE": "binary",
+    "OUTPUT_COLUMN": "label_binary",
+    "DATASET_PATH": "../Dataset/",
+    "SEQUENCE_LENGTH": 50,
+    "W1": 30,
+    "W0": 15,
+    "LSTM_UNITS": [
+        128,
+        64
+    ],
+    "DROPOUT_RATES": [
+        0.3,
+        0.3
+    ],
+    "L2_REG": 0.001,
+    "OPTIMIZER": "adam",
+    "LEARNING_RATE": 0.001,
+    "EPOCHS": 10,
+    "BATCH_SIZE": 256
+}

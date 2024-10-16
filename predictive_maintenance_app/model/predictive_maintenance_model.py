@@ -37,13 +37,13 @@ class PredictiveMaintenanceModel:
         """
         self.output_type = output_type.lower()
         self.nb_features = nb_features
-        self.sequence_length = config.SEQUENCE_LENGTH
-        self.model_path = config.get_model_path()
-        self.lstm_units = config.LSTM_UNITS
-        self.dropout_rates = config.DROPOUT_RATES
-        self.l2_reg = config.L2_REG
-        self.optimizer = config.OPTIMIZER
-        self.learning_rate = config.LEARNING_RATE
+#        self.sequence_length = config.SEQUENCE_LENGTH
+        self.config = config
+#        self.lstm_units = config.LSTM_UNITS
+#        self.dropout_rates = config.DROPOUT_RATES
+#        self.l2_reg = config.L2_REG
+#        self.optimizer = config.OPTIMIZER
+#        self.learning_rate = config.LEARNING_RATE
         self.model = None
 
         # Configure output layer parameters based on output_type
@@ -82,21 +82,21 @@ class PredictiveMaintenanceModel:
 
         # First LSTM layer
         self.model.add(LSTM(
-            units=self.lstm_units[0],
-            input_shape=(self.sequence_length, self.nb_features),
+            units=self.config.LSTM_UNITS[0],
+            input_shape=(self.config.SEQUENCE_LENGTH, self.nb_features),
             return_sequences=True,
-            kernel_regularizer=l2(self.l2_reg)
+            kernel_regularizer=l2(self.config.L2_REG)
         ))
-        self.model.add(Dropout(self.dropout_rates[0]))
+        self.model.add(Dropout(self.config.DROPOUT_RATES[0]))
         self.model.add(BatchNormalization())
 
         # Second LSTM layer
         self.model.add(LSTM(
-            units=self.lstm_units[1],
+            units=self.config.LSTM_UNITS[1],
             return_sequences=False,
-            kernel_regularizer=l2(self.l2_reg)
+            kernel_regularizer=l2(self.config.L2_REG)
         ))
-        self.model.add(Dropout(self.dropout_rates[1]))
+        self.model.add(Dropout(self.config.DROPOUT_RATES[1]))
         self.model.add(BatchNormalization())
 
         # Output layer
@@ -116,15 +116,15 @@ class PredictiveMaintenanceModel:
         Returns:
             tf.keras.optimizers.Optimizer: Configured optimizer.
         """
-        if self.optimizer.lower() == 'adam':
-            return tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
-        elif self.optimizer.lower() == 'sgd':
-            return tf.keras.optimizers.SGD(learning_rate=self.learning_rate)
+        if self.config.OPTIMIZER.lower() == 'adam':
+            return tf.keras.optimizers.Adam(learning_rate=self.config.LEARNING_RATE)
+        elif self.config.OPTIMIZER.lower() == 'sgd':
+            return tf.keras.optimizers.SGD(learning_rate=self.config.LEARNING_RATE)
         else:
             logger.warning("Unsupported optimizer. Defaulting to Adam.")
-            return tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
+            return tf.keras.optimizers.Adam(learning_rate=self.config.LEARNING_RATE)
 
-    def train_model(self, seq_array, label_array, epochs, batch_size, custom_callback=None):
+    def train_model(self, seq_array, label_array, epochs, batch_size, validation_split=0.05, custom_callback=None):
         """
         Trains the LSTM model with the provided data and configuration.
 
@@ -140,7 +140,7 @@ class PredictiveMaintenanceModel:
         """
         callbacks = [
             EarlyStopping(monitor='val_loss', patience=10, verbose=1, mode='min'),
-            ModelCheckpoint(self.model_path, monitor='val_loss', save_best_only=True, mode='min', verbose=1,
+            ModelCheckpoint(self.config.get_model_path(), monitor='val_loss', save_best_only=True, mode='min', verbose=1,
                             save_weights_only=True)
         ]
 
@@ -153,7 +153,7 @@ class PredictiveMaintenanceModel:
                 seq_array, label_array,
                 epochs=epochs,
                 batch_size=batch_size,
-                validation_split=0.05,
+                validation_split=validation_split,
                 verbose=0,  # Suppress console output; StreamlitCallback will handle updates
                 callbacks=callbacks
             )
@@ -199,12 +199,12 @@ class PredictiveMaintenanceModel:
         Loads model weights from the specified path. Assumes that the model architecture has already been built.
         """
         try:
-            if os.path.isfile(self.model_path):
-                self.model.load_weights(self.model_path)
+            if os.path.isfile(self.config.get_model_path()):
+                self.model.load_weights(self.config.get_model_path())
                 logger.info("Model weights loaded successfully.")
             else:
-                logger.error(f"No saved model weights found at {self.model_path}. Please train the model first.")
-                raise FileNotFoundError(f"No saved model weights found at {self.model_path}.")
+                logger.error(f"No saved model weights found at {self.config.get_model_path()}. Please train the model first.")
+                raise FileNotFoundError(f"No saved model weights found at {self.config.get_model_path()}.")
         except Exception as e:
             logger.error(f"Error loading model weights: {e}")
             raise
@@ -255,7 +255,7 @@ class PredictiveMaintenanceModel:
         """
         try:
             if not save_path:
-                save_path = os.path.splitext(self.model_path)[0] + '.h5'
+                save_path = os.path.splitext(self.config.get_model_path())[0] + '.h5'
             self.model.save(save_path)
             logger.info(f"Full model saved successfully at {save_path}.")
         except Exception as e:
@@ -271,7 +271,7 @@ class PredictiveMaintenanceModel:
         """
         try:
             if not load_path:
-                load_path = os.path.splitext(self.model_path)[0] + '.h5'
+                load_path = os.path.splitext(self.config.get_model_path())[0] + '.h5'
             if os.path.isfile(load_path):
                 self.model = tf.keras.models.load_model(load_path)
                 logger.info(f"Full model loaded successfully from {load_path}.")

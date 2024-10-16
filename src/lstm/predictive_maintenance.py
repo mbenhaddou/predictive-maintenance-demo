@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import logging
 from sklearn.metrics import accuracy_score, mean_squared_error, mean_absolute_error, r2_score
+from src.lstm.data_loader import DataLoader
 
 
 # Set up logging
@@ -27,10 +28,7 @@ os.environ['PYTHONHASHSEED'] = str(SEED)
 
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import confusion_matrix, recall_score, precision_score, f1_score
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense, Dropout, LSTM, BatchNormalization
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-from tensorflow.keras.regularizers import l2
+from src.lstm.predictive_maintenance_model import PredictiveMaintenanceModel
 
 ##################################
 # Configuration
@@ -49,192 +47,36 @@ class Config:
     BATCH_SIZE = 256
     OPTIMIZER = 'adam'  # Optimizer
     LEARNING_RATE = 0.001  # Learning rate
-    OUTPUT_COLUMN = "label_multiclass"  # Can be 'label_binary', 'label_multiclass', 'label_regression'
-    OUTPUT_TYPE = None  # Will be set after detecting output type
+    OUTPUT_TYPE = "binary"  # Options: "binary", "multiclass", "regression"
+    OUTPUT_COLUMN = "label_binary"
 
-    @classmethod
-    def get_model_path(cls):
-        if cls.OUTPUT_TYPE is None:
+    BINARY_THRESHOLD = 0.5  # Threshold for binary classification
+    MULTICLASS_THRESHOLD = 0.5  # Threshold for multiclass classification
+    REGRESSION_THRESHOLD = 50.0  # Threshold for regression
+
+    # Optionally, you can define colors or emojis for different statuses
+    STATUS_COLORS = {
+        'safe': '🟢',
+        'warning': '🟡',
+        'critical': '🔴'
+    }
+
+    def get_model_path(self):
+        if self.OUTPUT_TYPE is None:
             raise ValueError("OUTPUT_TYPE is not set.")
-        return os.path.join(cls.OUTPUT_PATH, f'{cls.OUTPUT_TYPE}_model.weights.h5')
+        return os.path.join(self.OUTPUT_PATH, f'{self.OUTPUT_COLUMN}_model.weights.h5')
 
+    def update_from_dict(self, config_dict):
+        """Update configuration attributes from a dictionary."""
+        for key, value in config_dict.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+    def to_dict(self):
+        """Convert configuration attributes to a dictionary."""
+        return self.__dict__
 # Create output directory if it doesn't exist
 os.makedirs(Config.OUTPUT_PATH, exist_ok=True)
-
-##################################
-# DataLoader Class
-##################################
-
-class DataLoader:
-    """
-    Class for loading and preprocessing data.
-    """
-    def __init__(self, dataset_path, sequence_length=50, w1=30, w0=15):
-        self.dataset_path = dataset_path
-        self.sequence_length = sequence_length
-        self.w1 = w1
-        self.w0 = w0
-        self.scaler = MinMaxScaler()
-        self.train_df = None
-        self.test_df = None
-        self.truth_df = None
-        self.sequence_cols = None
-        self.nb_features = None
-        self.nb_out = 1
-        self.output_column = None  # Initialize as None
-        self.output_type = None  # Will be set dynamically
-
-
-    def detect_output_type(self, df):
-        """
-        Detects the output type based on the output column values.
-        """
-        if pd.api.types.is_numeric_dtype(df[self.output_column]):
-            unique_values = df[self.output_column].nunique()
-            if unique_values == 2:
-                self.output_type = 'binary'
-            elif unique_values > 2 and unique_values < 10:  # Adjust threshold as needed
-                self.output_type = 'multiclass'
-            else:
-                self.output_type = 'regression'
-            Config.OUTPUT_TYPE = self.output_type
-        else:
-            raise ValueError(f"Output column '{self.output_column}' has non-numeric values, which is unsupported.")
-
-    def read_data(self):
-        """
-        Reads and preprocesses the datasets.
-        """
-        try:
-            self.train_df = self._read_file('PM_train.txt')
-            self.test_df = self._read_file('PM_test.txt')
-            self.truth_df = pd.read_csv(os.path.join(self.dataset_path, 'PM_truth.txt'), sep="\s+", header=None)
-            self.truth_df.columns = ['RUL']
-            self.train_df = self.train_df.sort_values(['id', 'cycle'])
-            self._prepare_data()
-
-            # Now that labels are generated and output_column is set, we can detect output type
-            self.detect_output_type(self.train_df)
-
-            logger.info("Data reading and preprocessing completed successfully.")
-        except Exception as e:
-            logger.error(f"Error in reading data: {e}")
-            raise
-
-    def _read_file(self, filename):
-        """
-        Reads a data file and assigns column names.
-        """
-        df = pd.read_csv(os.path.join(self.dataset_path, filename), sep="\s+", header=None)
-        df.columns = ['id', 'cycle',  'voltage_input', 'current_limit', 'speed_control'] + \
-                     [f's{i}' for i in range(1, 22)]
-        return df
-
-    def _prepare_data(self):
-        """
-        Prepares the data by adding RUL, generating labels, and normalizing.
-        """
-        # Add RUL and labels to training data
-        self.train_df = self._add_RUL(self.train_df)
-        self.train_df = self._generate_labels(self.train_df)
-        # Normalize training data
-        self.train_df, self.scaler = self._normalize(self.train_df)
-        # Normalize test data
-        self.test_df, _ = self._normalize(self.test_df, self.scaler)
-        # Prepare test data
-        self.test_df = self._prepare_test_df()
-        # Define sequence columns
-        sensor_cols = [f's{i}' for i in range(1, 22)]
-        self.sequence_cols = ['voltage_input', 'current_limit', 'speed_control', 'cycle'] + sensor_cols
-        self.nb_features = len(self.sequence_cols)
-
-    def _add_RUL(self, df):
-        """
-        Adds Remaining Useful Life (RUL) to the dataframe.
-        """
-        max_cycle = df.groupby('id')['cycle'].max().reset_index()
-        max_cycle.columns = ['id', 'max_cycle']
-        df = df.merge(max_cycle, on='id', how='left')
-        df['RUL'] = df['max_cycle'] - df['cycle']
-        df.drop('max_cycle', axis=1, inplace=True)
-        return df
-
-    def _generate_labels(self, df):
-        """
-        Generates labels based on the detected output type.
-        """
-        # For this example, let's generate all possible labels
-        df['label_binary'] = np.where(df['RUL'] <= self.w1, 1, 0)
-        df['label_multiclass'] = 0
-        df.loc[df['RUL'] <= self.w1, 'label_multiclass'] = 1
-        df.loc[df['RUL'] <= self.w0, 'label_multiclass'] = 2
-        #df['label_regression'] = df['RUL']
-
-        # Now set the output_column based on your task
-        # For example, if you're doing binary classification:
-        self.output_column = 'label_binary'
-
-        # If you want to automatically detect the output type, you can set it dynamically
-        # For now, we'll assume it's set in Config
-        self.output_column = Config.OUTPUT_COLUMN
-
-        return df
-
-    def _normalize(self, df, scaler=None):
-        """
-        Normalizes the dataframe using MinMaxScaler.
-        """
-        cols_normalize = df.columns.difference(['id', 'cycle', 'RUL', 'label_binary', 'label_multiclass'])
-        if scaler is None:
-            scaler = MinMaxScaler()
-            df[cols_normalize] = scaler.fit_transform(df[cols_normalize])
-        else:
-            df[cols_normalize] = scaler.transform(df[cols_normalize])
-        return df, scaler
-
-    def _prepare_test_df(self):
-        """
-        Prepares the test dataframe by adding RUL and labels.
-        """
-        max_cycle = self.test_df.groupby('id')['cycle'].max().reset_index()
-        max_cycle.columns = ['id', 'max_cycle']
-        self.truth_df['id'] = self.truth_df.index + 1+22510000
-        self.truth_df['max_cycle'] = max_cycle['max_cycle'] + self.truth_df['RUL']
-        test_df = self.test_df.merge(self.truth_df[['id', 'max_cycle']], on='id', how='left')
-        test_df['RUL'] = test_df['max_cycle'] - test_df['cycle']
-        test_df.drop('max_cycle', axis=1, inplace=True)
-        test_df = self._generate_labels(test_df)
-        return test_df
-
-    def get_train_data(self):
-        """
-        Returns the training dataframe.
-        """
-        return self.train_df
-
-    def get_test_data(self):
-        """
-        Returns the test dataframe.
-        """
-        return self.test_df
-
-    def get_sequence_cols(self):
-        """
-        Returns the sequence columns.
-        """
-        return self.sequence_cols
-
-    def get_nb_features(self):
-        """
-        Returns the number of features.
-        """
-        return self.nb_features
-
-    def get_sequence_length(self):
-        """
-        Returns the sequence length.
-        """
-        return self.sequence_length
 
 ##################################
 # SequenceGenerator Class
@@ -304,161 +146,28 @@ class SequenceGenerator:
 # PredictiveMaintenanceModel Class
 ##################################
 
-class PredictiveMaintenanceModel:
-    """
-    Class for building, training, evaluating, and saving the LSTM model.
-    """
+"""
+Predictive Maintenance using LSTM on NASA's Turbofan Engine Dataset
 
-    def __init__(self, config, nb_features, output_type):
-        self.output_type = output_type
-        self.nb_features = nb_features
-        self.sequence_length = config.SEQUENCE_LENGTH
-        self.nb_out = 1
-        self.model_path = config.get_model_path()
-        self.lstm_units = config.LSTM_UNITS
-        self.dropout_rates = config.DROPOUT_RATES
-        self.l2_reg = config.L2_REG
-        self.optimizer = config.OPTIMIZER
-        self.learning_rate = config.LEARNING_RATE
-        self.model = None
+Supports:
+- Binary Classification: Predict if an asset will fail within a certain time frame (e.g., cycles)
+- Multiclass Classification: Categorize the failure severity or stages
+- Regression: Predict the exact Remaining Useful Life (RUL)
+"""
 
-        self._configure_output()
+import os
+import numpy as np
+import logging
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, LSTM, BatchNormalization
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.regularizers import l2
 
-    def _configure_output(self):
-        """
-        Configures output layer, activation, and loss based on the output type.
-        """
-        if self.output_type == 'binary':
-            self.nb_out = 1
-            self.activation = 'sigmoid'
-            self.loss = 'binary_crossentropy'
-            self.metrics = ['accuracy']
-        elif self.output_type == 'multiclass':
-            self.nb_out = 3  # Adjust based on actual classes
-            self.activation = 'softmax'
-            self.loss = 'sparse_categorical_crossentropy'
-            self.metrics = ['accuracy']
-        elif self.output_type == 'regression':
-            self.nb_out = 1
-            self.activation = 'linear'
-            self.loss = 'mse'
-            self.metrics = ['mae', 'mse']
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    def build_model(self):
-        """
-        Builds the LSTM model architecture.
-        """
-        self.model = Sequential()
-        # First LSTM layer
-        self.model.add(LSTM(
-            units=self.lstm_units[0],
-            input_shape=(self.sequence_length, self.nb_features),
-            return_sequences=True,
-            kernel_regularizer=l2(self.l2_reg)
-        ))
-        self.model.add(Dropout(self.dropout_rates[0]))
-        self.model.add(BatchNormalization())
-        # Second LSTM layer
-        self.model.add(LSTM(
-            units=self.lstm_units[1],
-            return_sequences=False,
-            kernel_regularizer=l2(self.l2_reg)
-        ))
-        self.model.add(Dropout(self.dropout_rates[1]))
-        self.model.add(BatchNormalization())
-        # Output layer
-        self.model.add(Dense(self.nb_out, activation=self.activation))  # Use dynamic activation
-        # Compile model with specified optimizer and learning rate
-        optimizer_instance = self._get_optimizer()
-        self.model.compile(loss=self.loss, optimizer=optimizer_instance,
-                           metrics=self.metrics)  # Use dynamic loss and metrics
-        logger.info("Model built successfully.")
-        self.model.summary()
-
-    def _get_optimizer(self):
-        """
-        Returns an optimizer instance based on configuration.
-        """
-        if self.optimizer.lower() == 'adam':
-            return tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
-        elif self.optimizer.lower() == 'sgd':
-            return tf.keras.optimizers.SGD(learning_rate=self.learning_rate)
-        else:
-            logger.warning("Unsupported optimizer. Defaulting to Adam.")
-            return tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
-
-    # In the PredictiveMaintenanceModel class
-
-    def train_model(self, seq_array, label_array, epochs, batch_size, custom_callback=None):
-        """
-        Trains the LSTM model.
-        """
-        callbacks = [
-            EarlyStopping(monitor='val_loss', patience=10, verbose=1, mode='min'),
-            ModelCheckpoint(self.model_path, monitor='val_loss', save_best_only=True, mode='min', verbose=1,
-                            save_weights_only=True)]
-        # Add the custom callback if provided
-        if custom_callback:
-            callbacks.append(custom_callback)
-        try:
-            history = self.model.fit(
-                seq_array, label_array,
-                epochs=epochs,
-                batch_size=batch_size,
-                validation_split=0.05,
-                verbose=0,  # Suppress console output
-                callbacks=callbacks
-            )
-            logger.info("Model training completed successfully.")
-            return history
-        except Exception as e:
-            logger.error(f"Error during model training: {e}")
-            raise
-
-
-    def evaluate_model(self, seq_array, label_array, batch_size):
-        """
-        Evaluates the model on the provided data.
-        """
-        try:
-            scores = self.model.evaluate(seq_array, label_array, verbose=1, batch_size=batch_size)
-            logger.info(f"Model evaluation completed with loss: {scores[0]}, accuracy: {scores[1]}")
-            return scores
-        except Exception as e:
-            logger.error(f"Error during model evaluation: {e}")
-            raise
-
-    def load_model(self):
-        """
-        Loads a saved model from the specified path.
-        """
-        try:
-            if os.path.isfile(self.model_path):
-                self.build_model()
-                self.model.load_weights(self.model_path)
-                logger.info("Model loaded successfully.")
-            else:
-                logger.error("No saved model found. Please train the model first.")
-        except Exception as e:
-            logger.error(f"Error loading model: {e}")
-            raise
-
-    def predict(self, seq_array):
-        """
-        Generates predictions for the provided sequences.
-        """
-        try:
-            y_pred = self.model.predict(seq_array)
-            if self.output_type == 'binary':
-                y_pred_class = (y_pred > 0.5).astype(int)
-            elif self.output_type == 'multiclass':
-                y_pred_class = np.argmax(y_pred, axis=1)
-            elif self.output_type == 'regression':
-                y_pred_class = y_pred.flatten()
-            return y_pred_class
-        except Exception as e:
-            logger.error(f"Error during prediction: {e}")
-            raise
 
 
 ##################################

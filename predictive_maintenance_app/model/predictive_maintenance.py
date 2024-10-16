@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import logging
 from sklearn.metrics import accuracy_score, mean_squared_error, mean_absolute_error, r2_score
-from src.lstm.data_loader import DataLoader
-
+from model.data_loader import DataLoader
+from utils.config import Config
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -28,59 +28,7 @@ os.environ['PYTHONHASHSEED'] = str(SEED)
 
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import confusion_matrix, recall_score, precision_score, f1_score
-from src.lstm.predictive_maintenance_model import PredictiveMaintenanceModel
-
-##################################
-# Configuration
-##################################
-
-class Config:
-    DATASET_PATH = '../../Dataset/'
-    OUTPUT_PATH = '../../Output/'
-    SEQUENCE_LENGTH = 50
-    W1 = 30  # Threshold for label generation
-    W0 = 15  # Threshold for label generation
-    LSTM_UNITS = [128, 64]  # LSTM units for each layer
-    DROPOUT_RATES = [0.3, 0.3]  # Dropout rates for each layer
-    L2_REG = 0.001  # L2 regularization factor
-    EPOCHS = 50
-    BATCH_SIZE = 256
-    OPTIMIZER = 'adam'  # Optimizer
-    LEARNING_RATE = 0.001  # Learning rate
-    OUTPUT_TYPE = "binary"  # Options: "binary", "multiclass", "regression"
-    OUTPUT_COLUMN = "label_binary"
-
-    BINARY_THRESHOLD = 0.5  # Threshold for binary classification
-    MULTICLASS_THRESHOLD = 0.5  # Threshold for multiclass classification
-    REGRESSION_THRESHOLD = 50.0  # Threshold for regression
-
-    # Optionally, you can define colors or emojis for different statuses
-    STATUS_COLORS = {
-        'safe': '🟢',
-        'warning': '🟡',
-        'critical': '🔴'
-    }
-
-    def get_model_path(self):
-        if self.OUTPUT_TYPE is None:
-            raise ValueError("OUTPUT_TYPE is not set.")
-        return os.path.join(self.OUTPUT_PATH, f'{self.OUTPUT_COLUMN}_model.weights.h5')
-
-    def update_from_dict(self, config_dict):
-        """Update configuration attributes from a dictionary."""
-        for key, value in config_dict.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-
-    def to_dict(self):
-        """Convert configuration attributes to a dictionary."""
-        return self.__dict__
-# Create output directory if it doesn't exist
-os.makedirs(Config.OUTPUT_PATH, exist_ok=True)
-
-##################################
-# SequenceGenerator Class
-##################################
+from model.predictive_maintenance_model import PredictiveMaintenanceModel
 
 class SequenceGenerator:
     """
@@ -158,11 +106,7 @@ Supports:
 import os
 import numpy as np
 import logging
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, LSTM, BatchNormalization
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-from tensorflow.keras.regularizers import l2
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -337,7 +281,6 @@ def prepare_train_data(df_in, period):
 
     return df_in
 
-
 def prepare_test_data(df_test_in, df_truth_in, period):
     """Add regression and classification labels to the test data.
 
@@ -384,6 +327,7 @@ def prepare_test_data(df_test_in, df_truth_in, period):
 ##################################
 
 def main():
+
     # Initialize DataLoader with Config
     data_loader = DataLoader(
         dataset_path=Config.DATASET_PATH,

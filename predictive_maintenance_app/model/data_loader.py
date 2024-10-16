@@ -148,6 +148,21 @@ class DataLoader:
 
         return df
 
+    def generate_test_sequences(self, sequence_length, output_column):
+        """
+        Generates sequences and labels for test data.
+        """
+        seq_array_test = []
+        label_array_test = []
+        for id in self.test_df['id'].unique():
+            id_df = self.test_df[self.test_df['id'] == id]
+            if len(id_df) >= sequence_length:
+                seq = id_df[self.get_sequence_cols()].values[-sequence_length:]
+                seq_array_test.append(seq)
+                label = id_df[output_column].values[-1]
+                label_array_test.append(label)
+        return np.array(seq_array_test), np.array(label_array_test)
+
     def _normalize(self, df, scaler=None):
         """
         Normalizes the dataframe using MinMaxScaler.
@@ -165,13 +180,13 @@ class DataLoader:
         """
         Prepares the test dataframe by adding RUL and labels.
         """
-        max_cycle = self.test_df.groupby('id')['cycle'].max().reset_index()
-        max_cycle.columns = ['id', 'max_cycle']
+        #max_cycle = self.test_df.groupby('id')['cycle'].max().reset_index()
+        #max_cycle.columns = ['id', 'max_cycle']
         # Assuming truth_df has 'RUL' corresponding to each 'id'
         # Adjust if 'truth_df' structure is different
         self.truth_df['id'] = self.truth_df.index + 1 + 22510000 # Adjust if IDs start from a different number
         self.test_df = self.test_df.merge(self.truth_df[['id', 'RUL']], on='id', how='left')
-        self.test_df['RUL'] = self.test_df['RUL']
+        #self.test_df['RUL'] = self.test_df['RUL']
         self.test_df = self._generate_labels(self.test_df)
         return self.test_df
 

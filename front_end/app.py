@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 from sklearn.metrics import confusion_matrix, recall_score, precision_score, f1_score
 sys.path.append('../')
 
-from src.lstm.binary_classification import DataLoader, SequenceGenerator, PredictiveMaintenanceModel, Config, plot_history, evaluate_performance, generate_test_sequences, plot_predictions
+from src.lstm.predictive_maintenance import DataLoader, SequenceGenerator, PredictiveMaintenanceModel, Config, plot_history, evaluate_performance, generate_test_sequences, plot_predictions
 from src.lstm.callbacks import StreamlitCallback
 # Set up logging
 logging.basicConfig(level=logging.INFO)

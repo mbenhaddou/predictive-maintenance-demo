@@ -1,0 +1,42 @@
+{
+    "OUTPUT_TYPE": "multiclass",
+    "OUTPUT_TYPES_OPTIONS": [
+        "label_binary",
+        "label_multiclass",
+        "RUL"
+    ],
+    "OUTPUT_COLUMN": "label_multiclass",
+    "DATASET_PATH": "Dataset/",
+    "OUTPUT_PATH": "Output/",
+    "SEQUENCE_LENGTH": 50,
+    "VALIDATION_SPLIT": 0.05,
+    "RANDOM_STATE": 42,
+    "W1": 30,
+    "W0": 15,
+    "LSTM_UNITS": [
+        64,
+        32
+    ],
+    "DROPOUT_RATES": [
+        0.2,
+        0.2
+    ],
+    "L2_REG": 0.001,
+    "OPTIMIZER": "adam",
+    "LEARNING_RATE": 0.001,
+    "EPOCHS": 50,
+    "BATCH_SIZE": 64,
+    "SMOOTHING_FACTOR": 0.1,
+    "STATUS_COLORS": {
+        "safe": "\ud83d\udfe2",
+        "warning": "\ud83d\udfe1",
+        "critical": "\ud83d\udd34"
+    },
+    "class_labels": [
+        "safe",
+        "warning",
+        "critical"
+    ],
+    "BINARY_THRESHOLD": 0.5,
+    "REGRESSION_THRESHOLD": 100
+}
