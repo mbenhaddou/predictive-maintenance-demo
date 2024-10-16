@@ -6,7 +6,7 @@ import json, os
 class Config:
     def __init__(self):
         # Initialize with default values
-        self.OUTPUT_TYPE = 'binary'
+        self.OUTPUT_TYPE = 'label_binary'
         self.OUTPUT_TYPES_OPTIONS = ['label_binary', 'label_multiclass', 'RUL']
         self.OUTPUT_COLUMN = 'label_binary'
         self.DATASET_PATH = '../Dataset/'

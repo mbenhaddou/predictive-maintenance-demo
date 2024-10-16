@@ -59,7 +59,7 @@ class DataLoader:
         if pd.api.types.is_numeric_dtype(df[self.output_column]):
             unique_values = df[self.output_column].nunique()
             if unique_values == 2:
-                self.output_type = 'binary'
+                self.output_type = 'label_binary'
             elif 2 < unique_values < 10:  # Adjust threshold as needed
                 self.output_type = 'multiclass'
             else:
@@ -130,21 +130,13 @@ class DataLoader:
         """
         Generates labels based on the detected output type.
         """
-        if self.output_type == 'binary':
-            df['label_binary'] = np.where(df['RUL'] <= self.w1, 1, 0)
-            self.output_column = 'label_binary'
-        elif self.output_type == 'multiclass':
-            df['label_multiclass'] = 0
-            df.loc[df['RUL'] <= self.w1, 'label_multiclass'] = 1
-            df.loc[df['RUL'] <= self.w0, 'label_multiclass'] = 2
-            self.output_column = 'label_multiclass'
-        elif self.output_type == 'regression':
-            # For regression, output_column is already set to 'label_regression' in Config
-            # Assuming 'label_regression' is already a column or needs to be created
-   #         df['label_regression'] = df['RUL']
-            self.output_column = 'RUL'
-        else:
-            raise ValueError(f"Unsupported output type: {self.output_type}")
+
+
+        df['label_binary'] = np.where(df['RUL'] <= self.w1, 1, 0)
+        self.output_column = 'label_binary'
+
+        df.loc[df['RUL'] <= self.w1, 'label_multiclass'] = 1
+        df.loc[df['RUL'] <= self.w0, 'label_multiclass'] = 2
 
         return df
 
