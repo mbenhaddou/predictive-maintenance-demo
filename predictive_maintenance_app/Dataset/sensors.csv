@@ -1,0 +1,21 @@
+Sensor Name,Description,Abbreviation
+s1, Motor Voltage, V
+s2, Motor Current, I
+s3, Rotor Speed, RPM
+s4, Stator Winding Temperature, SWT
+s5, Rotor Temperature, RT
+s6, Ambient Temperature, AT
+s7, Inverter Voltage, V_inv
+s8, Inverter Current, I_inv
+s9, Battery Voltage, V_batt
+s10, Battery Current, I_batt
+s11, Battery Temperature, BT
+s12, Motor Torque, T
+s13, Vibration Acceleration, Vib_accel
+s14, Motor Power Output, P_out
+s15, Motor Efficiency, Eff
+s16, Cooling Fluid Temperature, CFT
+s17, Cooling Fluid Flow Rate, CFFR
+s18, Motor Position Encoder, Pos_enc
+s19, Power Factor, PF
+s20, Harmonic Distortion, THD
