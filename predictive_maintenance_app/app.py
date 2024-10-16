@@ -83,7 +83,7 @@ def main():
     @st.cache_data()
     def load_data(_config, dataset_path, sequence_length, w1, w0):
         """Load data using DataLoader."""
-        from predictive_maintenance_app.model.data_loader import DataLoader  # Import here to avoid circular imports
+        from model.data_loader import DataLoader  # Import here to avoid circular imports
         data_loader = DataLoader(_config)
         data_loader.read_data()
         data_loader.output_column = _config.OUTPUT_COLUMN
