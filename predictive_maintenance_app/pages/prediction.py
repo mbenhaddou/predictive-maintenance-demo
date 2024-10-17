@@ -288,7 +288,7 @@ def run_map_view_simulation(config, test_df, engine_motor_mapping, sequence_cols
 
             # Display only critical and warning engines
             if critical_engines:
-                critical_list_placeholder.subheader("Critical Engines")
+                #it critical_list_placeholder.subheader("Critical Engines")
                 for engine_id in critical_engines:
                     if engine_cycles_remaining[engine_id] >= 0:
                         # Use process_engine_prediction
@@ -305,7 +305,7 @@ def run_map_view_simulation(config, test_df, engine_motor_mapping, sequence_cols
                         )
 
             if warning_engines:
-                warning_list_placeholder.subheader("Warning Engines")
+                #warning_list_placeholder.subheader("Warning Engines")
                 for engine_id in warning_engines:
                     if engine_cycles_remaining[engine_id] >= 0:
                         process_engine_prediction(
@@ -836,9 +836,6 @@ def run_multiple_engines_simulation(config, test_df, engine_motor_mapping, motor
                     # Decrement the remaining cycles for the engine
                     engine_cycles_remaining[engine_id] -= 1
                 else:
-                    # Engine has completed its cycles
-                    with engine_placeholders[engine_id]['status_placeholder']:
-                        st.write(f"✅ **Engine ID: {engine_id} has completed its simulation.**")
                     continue  # Skip to next engine
 
             # Control simulation speed

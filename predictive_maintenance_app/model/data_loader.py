@@ -133,8 +133,7 @@ class DataLoader:
 
 
         df['label_binary'] = np.where(df['RUL'] <= self.w1, 1, 0)
-        self.output_column = 'label_binary'
-
+        df['label_multiclass'] = 0
         df.loc[df['RUL'] <= self.w1, 'label_multiclass'] = 1
         df.loc[df['RUL'] <= self.w0, 'label_multiclass'] = 2
 

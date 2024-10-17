@@ -1,8 +1,8 @@
 {
     "OUTPUT_TYPE": "multiclass",
     "OUTPUT_TYPES_OPTIONS": [
-        "label_binary",
-        "label_multiclass",
+        "binary",
+        "multiclass",
         "RUL"
     ],
     "OUTPUT_COLUMN": "label_multiclass",
