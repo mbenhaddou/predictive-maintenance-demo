@@ -1,36 +1,39 @@
 {
-    "OUTPUT_TYPE": "multiclass",
-    "OUTPUT_TYPES_OPTIONS": [
+    "TASK_TYPE": "classification",
+    "TASK_TYPE_OPTIONS": [
+        "classification",
+        "regression"
+    ],
+    "CLASSIFICATION_TYPE": "binary",
+    "CLASSIFICATION_TYPE_OPTIONS": [
         "binary",
-        "multiclass",
+        "multiclass"
+    ],
+    "OUTPUT_COLUMN_OPTIONS": [
+        "label_binary",
+        "label_multiclass",
         "RUL"
     ],
-    "OUTPUT_COLUMN": "label_multiclass",
+    "OUTPUT_COLUMN": "label_binary",
+    "MODEL_NAME": "LSTM Binary Classification Model",
     "DATASET_PATH": "Dataset/",
     "OUTPUT_PATH": "Output/",
-    "SEQUENCE_LENGTH": 50,
+    "ID_COLUMN": "id",
+    "TIMESTEP_COLUMN": "cycles",
+    "SEQUENCE_LENGTH": 30,
     "VALIDATION_SPLIT": 0.05,
     "RANDOM_STATE": 42,
-    "W1": 30,
-    "W0": 15,
-    "LSTM_UNITS": [
-        64,
-        32
-    ],
-    "DROPOUT_RATES": [
-        0.2,
-        0.2
-    ],
-    "L2_REG": 0.001,
-    "OPTIMIZER": "adam",
-    "LEARNING_RATE": 0.001,
-    "EPOCHS": 50,
-    "BATCH_SIZE": 64,
-    "SMOOTHING_FACTOR": 0.1,
+    "W1": 10.0,
+    "W0": 5.0,
     "STATUS_COLORS": {
         "safe": "\ud83d\udfe2",
         "warning": "\ud83d\udfe1",
         "critical": "\ud83d\udd34"
+    },
+    "LABEL_COLORS": {
+        "safe": "green",
+        "warning": "yellow",
+        "critical": "red"
     },
     "class_labels": [
         "safe",
@@ -38,5 +41,5 @@
         "critical"
     ],
     "BINARY_THRESHOLD": 0.5,
-    "REGRESSION_THRESHOLD": 100
+    "REGRESSION_THRESHOLD": 20
 }

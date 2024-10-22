@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, label_binarize
+from predictive_maintenance_app.model.preprocessing import *
 import logging
 
 # Initialize logger
@@ -31,7 +32,7 @@ class DataLoader:
         self.train_df = None
         self.test_df = None
         self.truth_df = None
-        self.sequence_cols = None
+        self.labels = []
         self.nb_features = None
         self.nb_out = 1
 
@@ -43,11 +44,11 @@ class DataLoader:
 
     @property
     def output_type(self):
-        return self.config.OUTPUT_TYPE
+        return self.config.MODEL_TYPE
 
     @output_type.setter
     def output_type(self, value):
-        self.config.OUTPUT_TYPE = value
+        self.config.MODEL_TYPE = value
 
     @output_column.setter
     def output_column(self, value):
@@ -59,15 +60,26 @@ class DataLoader:
         if pd.api.types.is_numeric_dtype(df[self.output_column]):
             unique_values = df[self.output_column].nunique()
             if unique_values == 2:
-                self.output_type = 'label_binary'
+                self.output_type = 'binary'
             elif 2 < unique_values < 10:  # Adjust threshold as needed
                 self.output_type = 'multiclass'
             else:
                 self.output_type = 'regression'
-            self.config.OUTPUT_TYPE = self.output_type  # Update config instance
+            self.config.MODEL_TYPE = self.output_type  # Update config instance
             logger.info(f"Detected output type: {self.output_type}")
         else:
             raise ValueError(f"Output column '{self.output_column}' has non-numeric values, which is unsupported.")
+
+    def prepare_data(self, drop_sensors, remaining_sensors, alpha):
+        self.train_df = add_operating_condition(self.train_df.drop(drop_sensors, axis=1))
+        self.test_df = add_operating_condition(self.test_df.drop(drop_sensors, axis=1))
+
+        self.train_df, X_test_interim = condition_scaler(self.train_df, self.test_df, remaining_sensors)
+
+        self.train_df = exponential_smoothing(self.train_df, remaining_sensors, 0, alpha)
+        self.test_df = exponential_smoothing(X_test_interim, remaining_sensors, 0, alpha)
+
+
 
     def read_data(self):
         """
@@ -80,7 +92,7 @@ class DataLoader:
             self.truth_df.columns = ['RUL']
             self.train_df = self.train_df.sort_values(['id', 'cycle'])
             self._prepare_data()
-
+            self.train_df['RUL'].clip(upper=125, inplace=True)
             # Now that labels are generated and output_column is set, we can detect output type
             self.detect_output_type(self.train_df)
 
@@ -112,8 +124,13 @@ class DataLoader:
         self.test_df = self._prepare_test_df()
         # Define sequence columns
         sensor_cols = [f's{i}' for i in range(1, 22)]
-        self.sequence_cols = ['voltage_input', 'current_limit', 'speed_control', 'cycle'] + sensor_cols
+        self.sequence_cols = ['voltage_input', 'current_limit', 'speed_control', 'cycle',
+            's2', 's3', 's4', 's7', 's8', 's9',
+            's11', 's12', 's13', 's14', 's15', 's17', 's20', 's21'
+        ]
+
         self.nb_features = len(self.sequence_cols)
+
 
     def _add_RUL(self, df):
         """
@@ -133,10 +150,15 @@ class DataLoader:
 
 
         df['label_binary'] = np.where(df['RUL'] <= self.w1, 1, 0)
+        if 'label_binary' not in self.labels:
+            self.labels.append('label_binary')
         df['label_multiclass'] = 0
+        if 'label_multiclass' not in self.labels:
+            self.labels.append('label_multiclass')
         df.loc[df['RUL'] <= self.w1, 'label_multiclass'] = 1
         df.loc[df['RUL'] <= self.w0, 'label_multiclass'] = 2
-
+        if 'RUL' not in self.labels:
+            self.labels.append('RUL')
         return df
 
     def generate_test_sequences(self, sequence_length, output_column):
@@ -185,13 +207,13 @@ class DataLoader:
         """
         Returns the training dataframe.
         """
-        return self.train_df
+        return self.train_df[self.sequence_cols+self.labels+[self.config.ID_COLUMN]]
 
     def get_test_data(self):
         """
         Returns the test dataframe.
         """
-        return self.test_df
+        return self.test_df[self.sequence_cols+self.labels+[self.config.ID_COLUMN]]
 
     def get_sequence_cols(self):
         """

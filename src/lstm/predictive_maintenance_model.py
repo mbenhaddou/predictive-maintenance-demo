@@ -46,7 +46,7 @@ class PredictiveMaintenanceModel:
         self.learning_rate = config.LEARNING_RATE
         self.model = None
 
-        # Configure output layer parameters based on output_type
+        # Configure output layer parameters based on task_type
         self._configure_output(config)
 
     def _configure_output(self, config):
@@ -72,7 +72,7 @@ class PredictiveMaintenanceModel:
             self.loss = 'mse'
             self.metrics = ['mae', 'mse']
         else:
-            raise ValueError("Unsupported output_type. Choose from 'binary', 'multiclass', 'regression'.")
+            raise ValueError("Unsupported task_type. Choose from 'binary', 'multiclass', 'regression'.")
 
     def build_model(self):
         """
@@ -100,7 +100,7 @@ class PredictiveMaintenanceModel:
         self.model.add(BatchNormalization())
 
         # Output layer
-        self.model.add(Dense(self.nb_out, activation=self.activation))  # Dynamic activation based on output_type
+        self.model.add(Dense(self.nb_out, activation=self.activation))  # Dynamic activation based on task_type
 
         # Compile model with specified optimizer and learning rate
         optimizer_instance = self._get_optimizer()
@@ -183,7 +183,7 @@ class PredictiveMaintenanceModel:
             evaluation_metrics = {}
             # The first element is always 'loss'
             evaluation_metrics['loss'] = scores[0]
-            # The rest depend on the output_type
+            # The rest depend on the task_type
             for idx, metric in enumerate(self.metrics):
                 # Keras returns metrics in the order they were added
                 evaluation_metrics[metric] = scores[idx + 1]
@@ -240,7 +240,7 @@ class PredictiveMaintenanceModel:
             elif self.output_type == 'regression':
                 y_pred_class = y_pred.flatten()
             else:
-                raise ValueError("Unsupported output_type for prediction.")
+                raise ValueError("Unsupported task_type for prediction.")
             return y_pred_class
         except Exception as e:
             logger.error(f"Error during prediction: {e}")

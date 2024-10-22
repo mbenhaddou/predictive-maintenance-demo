@@ -1,187 +1,213 @@
 # pages/model_configuration.py
 
 import streamlit as st
-from utils.helpers import save_config
+import json
+import os
+from utils.helpers import get_models_by_task_type, apply_model_overrides
+from model.model_registry import MODEL_REGISTRY
+from utils.config import Config  # Base Config class
+from model.lstm_model import LSTMConfig
+from model.cnn_model import CNNConfig
 
-def display(config):
+
+def instantiate_config(config_class_name: str):
+    """
+    Instantiate the appropriate configuration class based on the class name.
+
+    Args:
+        config_class_name (str): The name of the configuration class.
+
+    Returns:
+        An instance of the specified configuration class.
+
+    Raises:
+        ValueError: If the configuration class name is unsupported.
+    """
+    if config_class_name == "LSTMConfig":
+        return LSTMConfig()
+    elif config_class_name == "CNNConfig":
+        return CNNConfig()
+    else:
+        raise ValueError(f"Unsupported configuration class: {config_class_name}")
+
+
+def display():
     """Display the Model Configuration page."""
     st.header("Model Configuration")
-    st.write("Adjust model parameters below:")
+    st.write("Adjust model parameters below and save the configuration.")
 
     # ---------------------------
-    # 1. Output Type Selection
+    # 1. Select Model
     # ---------------------------
-    output_type_options = ["binary", "multiclass", "regression"]
+    st.subheader("1. Select Model")
+    model_names = list(MODEL_REGISTRY.keys())
+    selected_model = st.selectbox("Choose a model:", model_names, key='model_selectbox')
 
-    # Determine the index based on current OUTPUT_TYPE
-    if config.OUTPUT_TYPE in output_type_options:
-        output_type_index = output_type_options.index(config.OUTPUT_TYPE)
-    else:
-        output_type_index = 0  # Default to 'binary' if not found
+    # Retrieve model information
+    model_info = MODEL_REGISTRY.get(selected_model, {})
+    config_class_name_full = model_info.get("config_class")  # Fully qualified class name
 
-    selected_output_type = st.selectbox(
-        "Select Output Type",
-        output_type_options,
-        index=output_type_index,
-        key='output_type_selectbox'
-    )
-    config.OUTPUT_TYPE = selected_output_type  # Update the config instance
+    if not config_class_name_full:
+        st.error(f"No configuration class found for model '{selected_model}'.")
+        return
 
-    # ---------------------------
-    # 2. Set Output Column
-    # ---------------------------
-    if selected_output_type == "binary":
-        config.OUTPUT_COLUMN = "label_binary"
-    elif selected_output_type == "multiclass":
-        config.OUTPUT_COLUMN = "label_multiclass"
-    elif selected_output_type == "regression":
-        config.OUTPUT_COLUMN = "RUL"
+    try:
+        # Extract only the class name from the fully qualified class name
+        if isinstance(config_class_name_full, str):
+            config_class_name = config_class_name_full.split('.')[-1]
+        else:
+            config_class_name = config_class_name_full.__name__
 
-    # ---------------------------
-    # 3. Model Parameters
-    # ---------------------------
-
-    # Dataset Path
-    config.DATASET_PATH = st.text_input(
-        "Dataset Path",
-        value=config.DATASET_PATH,
-        key='dataset_path_input'
-    )
-
-    # Sequence Length
-    config.SEQUENCE_LENGTH = st.number_input(
-        "Sequence Length",
-        min_value=10,
-        max_value=100,
-        value=config.SEQUENCE_LENGTH,
-        step=10,
-        key='sequence_length_input'
-    )
-
-    # Threshold W1 for Label Generation
-    config.W1 = st.number_input(
-        "Threshold W1 for Label Generation",
-        min_value=1,
-        max_value=100,
-        value=config.W1,
-        step=5,
-        key='w1_input'
-    )
-
-    # Threshold W0 for Label Generation
-    config.W0 = st.number_input(
-        "Threshold W0 for Label Generation",
-        min_value=1,
-        max_value=100,
-        value=config.W0,
-        step=5,
-        key='w0_input'
-    )
-
-    # LSTM Units for Layer 1 and Layer 2
-    config.LSTM_UNITS = [
-        st.number_input(
-            "LSTM Units Layer 1",
-            min_value=32,
-            max_value=256,
-            value=config.LSTM_UNITS[0],
-            step=32,
-            key='lstm_units_layer1'
-        ),
-        st.number_input(
-            "LSTM Units Layer 2",
-            min_value=32,
-            max_value=256,
-            value=config.LSTM_UNITS[1],
-            step=32,
-            key='lstm_units_layer2'
-        )
-    ]
-
-    # Dropout Rates for Layer 1 and Layer 2
-    config.DROPOUT_RATES = [
-        st.slider(
-            "Dropout Rate Layer 1",
-            min_value=0.0,
-            max_value=0.5,
-            value=config.DROPOUT_RATES[0],
-            step=0.1,
-            key='dropout_rate_layer1'
-        ),
-        st.slider(
-            "Dropout Rate Layer 2",
-            min_value=0.0,
-            max_value=0.5,
-            value=config.DROPOUT_RATES[1],
-            step=0.1,
-            key='dropout_rate_layer2'
-        )
-    ]
-
-    # L2 Regularization
-    config.L2_REG = st.number_input(
-        "L2 Regularization",
-        min_value=0.0,
-        max_value=0.01,
-        value=config.L2_REG,
-        step=0.001,
-        format="%.3f",
-        key='l2_reg_input'
-    )
-
-    # Optimizer Selection
-    optimizer_options = ["adam", "sgd"]
-    if config.OPTIMIZER in optimizer_options:
-        optimizer_index = optimizer_options.index(config.OPTIMIZER)
-    else:
-        optimizer_index = 0  # Default to 'adam' if not found
-
-    config.OPTIMIZER = st.selectbox(
-        "Optimizer",
-        optimizer_options,
-        index=optimizer_index,
-        key='optimizer_selectbox'
-    )
-
-    # Learning Rate
-    config.LEARNING_RATE = st.number_input(
-        "Learning Rate",
-        min_value=0.0001,
-        max_value=0.01,
-        value=config.LEARNING_RATE,
-        step=0.0001,
-        format="%.4f",
-        key='learning_rate_input'
-    )
-
-    # Epochs
-    config.EPOCHS = st.number_input(
-        "Epochs",
-        min_value=10,
-        max_value=200,
-        value=config.EPOCHS,
-        step=10,
-        key='epochs_input'
-    )
-
-    # Batch Size
-    config.BATCH_SIZE = st.number_input(
-        "Batch Size",
-        min_value=64,
-        max_value=512,
-        value=config.BATCH_SIZE,
-        step=64,
-        key='batch_size_input'
-    )
+        # Instantiate the appropriate configuration class
+        config = instantiate_config(config_class_name)
+    except ValueError as e:
+        st.error(str(e))
+        return
 
     # ---------------------------
-    # 4. Validation
+    # 2. Display and Modify Configuration Parameters
     # ---------------------------
-    if config.W1 <= config.W0:
-        st.error("W1 should be greater than W0 for proper label generation.")
+    st.subheader("2. Configure Parameters")
+
+    # Iterate over dataclass fields and create input widgets
+    for field_name, field_def in config.__dataclass_fields__.items():
+        # Skip non-input fields or complex types
+        if field_name in ["CALLBACKS_CONFIG", "class_labels", "STATUS_COLORS", "LABEL_COLORS"]:
+            continue
+
+        field_value = getattr(config, field_name)
+
+        if isinstance(field_value, bool):
+            # Boolean fields as checkboxes
+            setattr(config, field_name, st.checkbox(
+                f"{field_name.replace('_', ' ').title()}",
+                value=field_value,
+                key=field_name
+            ))
+
+        elif isinstance(field_value, int):
+            # Integer fields as number inputs
+            setattr(config, field_name, st.number_input(
+                f"{field_name.replace('_', ' ').title()}",
+                min_value=1,
+                max_value=1000,
+                value=field_value,
+                step=1,
+                key=field_name
+            ))
+
+        elif isinstance(field_value, float):
+            # Float fields as number inputs with appropriate formatting
+            if "lr" in field_name.lower() or "learning" in field_name.lower():
+                step = 0.0001
+                format_str = "%.4f"
+            elif "reg" in field_name.lower():
+                step = 0.001
+                format_str = "%.3f"
+            else:
+                step = 0.1
+                format_str = "%.2f"
+            setattr(config, field_name, st.number_input(
+                f"{field_name.replace('_', ' ').title()}",
+                min_value=0.0,
+                max_value=100.0,
+                value=field_value,
+                step=step,
+                format=format_str,
+                key=field_name
+            ))
+
+        elif isinstance(field_value, list):
+            # Handle lists of integers or floats with individual number inputs
+            if all(isinstance(item, int) for item in field_value):
+                new_list = []
+                for idx, item in enumerate(field_value):
+                    new_item = st.number_input(
+                        f"{field_name.replace('_', ' ').title()} #{idx+1}",
+                        min_value=1,
+                        max_value=1000,
+                        value=item,
+                        step=1,
+                        key=f"{field_name}_{idx}"
+                    )
+                    new_list.append(new_item)
+                setattr(config, field_name, new_list)
+
+            elif all(isinstance(item, float) for item in field_value):
+                new_list = []
+                for idx, item in enumerate(field_value):
+                    new_item = st.number_input(
+                        f"{field_name.replace('_', ' ').title()} #{idx+1}",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=item,
+                        step=0.05,
+                        format="%.2f",
+                        key=f"{field_name}_{idx}"
+                    )
+                    new_list.append(new_item)
+                setattr(config, field_name, new_list)
+
+        elif isinstance(field_value, str):
+            # String fields as text inputs or selectboxes (e.g., optimizer)
+            if field_name.lower() == "optimizer":
+                optimizer_options = ["adam", "sgd"]
+                optimizer_index = optimizer_options.index(field_value) if field_value in optimizer_options else 0
+                setattr(config, field_name, st.selectbox(
+                    f"{field_name.replace('_', ' ').title()}",
+                    optimizer_options,
+                    index=optimizer_index,
+                    key=field_name
+                ))
+            else:
+                setattr(config, field_name, st.text_input(
+                    f"{field_name.replace('_', ' ').title()}",
+                    value=field_value,
+                    key=field_name
+                ))
 
     # ---------------------------
-    # 5. Save Configuration Button
+    # 3. Validation
     # ---------------------------
-    if st.button("Save Configuration", key='save_config_button'):
-        save_config(config)
+    st.subheader("3. Validation")
+    if hasattr(config, 'W1') and hasattr(config, 'W0'):
+        if config.W1 <= config.W0:
+            st.error("W1 should be greater than W0 for proper label generation.")
+        else:
+            st.success("Configuration is valid.")
+
+    # ---------------------------
+    # 4. Save Configuration Button
+    # ---------------------------
+    st.subheader("4. Save Configuration")
+    save_config_button = st.button("Save Configuration", key='save_config_button')
+
+    if save_config_button:
+        try:
+            # Prepare configuration dictionary
+            config_dict = config.to_dict()
+            config_dict["config_class"] = config_class_name  # Include only the class name
+            config_dict["MODEL_NAME"] = selected_model      # Include the selected model name
+
+            # Remove non-serializable fields
+            non_serializable_fields = ["CALLBACKS_CONFIG", "class_labels", "STATUS_COLORS", "LABEL_COLORS"]
+            for key in non_serializable_fields:
+                if key in config_dict:
+                    del config_dict[key]
+
+            # Define the configuration file path
+            # You can modify this path as needed
+            config_dir = "configurations"
+            os.makedirs(config_dir, exist_ok=True)
+            config_file_path = os.path.join(config_dir, "config.json")
+
+            # Save the configuration to a JSON file
+            with open(config_file_path, 'w') as f:
+                json.dump(config_dict, f, indent=4)
+
+            st.success(f"Configuration saved successfully to `{config_file_path}`!")
+            st.balloons()
+        except TypeError as te:
+            st.error(f"Failed to save configuration: {te}")
+        except Exception as e:
+            st.error(f"Failed to save configuration: {e}")

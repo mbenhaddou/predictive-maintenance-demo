@@ -63,7 +63,7 @@ class Config:
 
     def get_model_path(self):
         if self.OUTPUT_TYPE is None:
-            raise ValueError("OUTPUT_TYPE is not set.")
+            raise ValueError("MODEL_TYPE is not set.")
         return os.path.join(self.OUTPUT_PATH, f'{self.OUTPUT_COLUMN}_model.weights.h5')
 
     def update_from_dict(self, config_dict):
@@ -392,7 +392,7 @@ def main():
         w0=Config.W0
     )
     data_loader.read_data()
-    # OUTPUT_TYPE is now set in Config
+    # MODEL_TYPE is now set in Config
 
     # Get training data
     train_df = data_loader.get_train_data()

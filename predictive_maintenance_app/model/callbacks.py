@@ -1,18 +1,10 @@
 # callbacks.py
 
 import tensorflow as tf
+import time
 
 class StreamlitCallback(tf.keras.callbacks.Callback):
     def __init__(self, epochs, progress_bar, status_text, output_type='binary'):
-        """
-        Initializes the StreamlitCallback.
-
-        Args:
-            epochs (int): Total number of training epochs.
-            progress_bar (streamlit.delta_generator.DeltaGenerator): Streamlit progress bar object.
-            status_text (streamlit.delta_generator.DeltaGenerator): Streamlit text object for status updates.
-            output_type (str): Type of output. Options: 'binary', 'multiclass', 'regression'.
-        """
         super().__init__()
         self.epochs = epochs
         self.progress_bar = progress_bar
@@ -20,8 +12,8 @@ class StreamlitCallback(tf.keras.callbacks.Callback):
         self.current_epoch = 0
         self.output_type = output_type.lower()
 
-        # Define metric keys based on output_type
-        if self.output_type in ['binary', 'multiclass']:
+        # Define metric keys based on task_type
+        if self.output_type == 'classification':
             self.metric_keys = {
                 'accuracy': 'accuracy',
                 'val_accuracy': 'val_accuracy',
@@ -31,23 +23,17 @@ class StreamlitCallback(tf.keras.callbacks.Callback):
         elif self.output_type == 'regression':
             self.metric_keys = {
                 'mae': 'mae',
-                'mse': 'mse',
+                'mse': 'mean_squared_error',
                 'val_mae': 'val_mae',
                 'val_mse': 'val_mse',
                 'loss': 'loss',
                 'val_loss': 'val_loss'
             }
         else:
-            raise ValueError("Unsupported output_type. Choose from 'binary', 'multiclass', 'regression'.")
+            raise ValueError("Unsupported task_type. Choose from 'classification', 'regression'.")
 
     def on_epoch_end(self, epoch, logs=None):
-        """
-        Called at the end of each epoch during training.
-
-        Args:
-            epoch (int): Current epoch index.
-            logs (dict): Metric results for this epoch.
-        """
+        print(f"Epoch {epoch + 1} ended.")
         self.current_epoch += 1
 
         # Initialize a message string

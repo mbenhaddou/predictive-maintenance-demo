@@ -21,7 +21,7 @@ class StreamlitCallback(tf.keras.callbacks.Callback):
         self.current_epoch = 0
         self.output_type = output_type.lower()
 
-        # Define metric keys based on output_type
+        # Define metric keys based on task_type
         if self.output_type in ['binary', 'multiclass']:
             self.metric_keys = {
                 'accuracy': 'accuracy',
@@ -39,7 +39,7 @@ class StreamlitCallback(tf.keras.callbacks.Callback):
                 'val_loss': 'val_loss'
             }
         else:
-            raise ValueError("Unsupported output_type. Choose from 'binary', 'multiclass', 'regression'.")
+            raise ValueError("Unsupported task_type. Choose from 'binary', 'multiclass', 'regression'.")
 
     def on_epoch_end(self, epoch, logs=None):
         """

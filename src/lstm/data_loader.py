@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, label_binarize
+from predictive_maintenance_app.model.preprocessing import *
 import logging
 
 # Initialize logger
@@ -43,11 +44,11 @@ class DataLoader:
 
     @property
     def output_type(self):
-        return self.config.OUTPUT_TYPE
+        return self.config.MODEL_TYPE
 
     @output_type.setter
     def output_type(self, value):
-        self.config.OUTPUT_TYPE = value
+        self.config.MODEL_TYPE = value
 
     @output_column.setter
     def output_column(self, value):
@@ -64,7 +65,7 @@ class DataLoader:
                 self.output_type = 'multiclass'
             else:
                 self.output_type = 'regression'
-            self.config.OUTPUT_TYPE = self.output_type  # Update config instance
+            self.config.MODEL_TYPE = self.output_type  # Update config instance
             logger.info(f"Detected output type: {self.output_type}")
         else:
             raise ValueError(f"Output column '{self.output_column}' has non-numeric values, which is unsupported.")
@@ -83,11 +84,21 @@ class DataLoader:
 
             # Now that labels are generated and output_column is set, we can detect output type
             self.detect_output_type(self.train_df)
-
+            self.train_df['RUL'].clip(upper=125, inplace=True)
             logger.info("Data reading and preprocessing completed successfully.")
         except Exception as e:
             logger.error(f"Error in reading data: {e}")
             raise
+
+    def prepare_data(self, drop_sensors, remaining_sensors, alpha):
+        self.train_df = add_operating_condition(self.train_df.drop(drop_sensors, axis=1))
+        self.test_df = add_operating_condition(self.test_df.drop(drop_sensors, axis=1))
+
+        self.train_df, X_test_interim = condition_scaler(self.train_df, self.test_df, remaining_sensors)
+
+        self.train_df = exponential_smoothing(self.train_df, remaining_sensors, 0, alpha)
+        self.test_df = exponential_smoothing(X_test_interim, remaining_sensors, 0, alpha)
+
 
     def _read_file(self, filename):
         """

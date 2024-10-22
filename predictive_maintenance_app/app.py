@@ -1,18 +1,10 @@
 # app.py
 
-import streamlit as st
 import os
-import json
-import pandas as pd
-import numpy as np
 
-from utils.helpers import (
-    load_csv,
-    assign_motors_to_engines,
-    load_or_initialize_config,
-    save_config
-)
-from utils.config import Config
+import streamlit as st
+# Import the option_menu from streamlit_option_menu
+from streamlit_option_menu import option_menu
 
 # Import page modules
 from pages import (
@@ -23,9 +15,11 @@ from pages import (
     model_evaluation,
     prediction
 )
-
-# Import the option_menu from streamlit_option_menu
-from streamlit_option_menu import option_menu
+from utils.helpers import (
+    load_csv,
+    assign_motors_to_engines,
+    load_or_initialize_config
+)
 
 
 def main():
@@ -46,7 +40,7 @@ def main():
                 """
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-    st.title("Predictive Maintenance using LSTM")
+    st.title("Ready4 Model Prediction")
     st.write("""
         **Objective**: Predict if an engine will fail within a certain number of cycles using LSTM neural networks.
     """)
@@ -61,17 +55,17 @@ def main():
     # Load motor specifications
     motors_df = load_csv(os.path.join('Dataset', 'motor_specifications.csv'))
 
-    # Load or initialize configuration
-    config = load_or_initialize_config()
+    config_dir = "configurations"
+    os.makedirs(config_dir, exist_ok=True)
+    config_file_path = os.path.join(config_dir, "config.json")
 
-    # Load Existing Configuration
-    CONFIG_FILE = 'config.json'
-    if os.path.exists(CONFIG_FILE):
-        config.load_from_file(CONFIG_FILE)
+    # Load or initialize configuration
+    config = load_or_initialize_config(config_file_path)
+
 
     # Ensure essential paths are set
     config.DATASET_PATH = os.path.join('Dataset', '')
-    config.OUTPUT_PATH = os.path.join('Output', '')
+    config.OUTPUT_PATH = os.path.join('../Output', '')
 
     # Extract parameters from config
     dataset_path = config.DATASET_PATH
@@ -123,7 +117,7 @@ def main():
         options=menu_options,
         icons=menu_icons,
         menu_icon="cast",  # Icon for the menu
-        default_index=0,
+        default_index=5,
         orientation="horizontal",
         styles=menu_styles
     )
@@ -147,11 +141,11 @@ def main():
     elif selected == "Data Exploration":
         data_exploration.display(config, train_df, test_df, motors_df, engine_motor_mapping, sensors_df)
     elif selected == "Model Configuration":
-        model_configuration.display(config)
+        model_configuration.display()
     elif selected == "Model Training":
-        model_training.display(config, train_df, sequence_cols, nb_features)
+        model_training.display(train_df, sequence_cols, nb_features)
     elif selected == "Model Evaluation":
-        model_evaluation.display(config)
+        model_evaluation.display()
     elif selected == "Prediction":
         prediction.display(config, test_df, engine_motor_mapping, motors_df, sensors_df, sequence_cols, nb_features)
     else:

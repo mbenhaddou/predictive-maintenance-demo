@@ -1,10 +1,5 @@
 # Recurrent Neural Networks for Predictive Maintenance
-* Author: Umberto Griffo
-* Twitter: @UmbertoGriffo
 
-## Colab
-You can try the code directly on [Colab](https://colab.research.google.com/drive/1tjIOud2Cc6smmvZsbl-QDBA6TLA2iEtd).
-Save a copy in your drive and enjoy It!
 
 ## Software Environment
 * Python 3.6
@@ -81,19 +76,3 @@ The following pictures show the trend of loss Function, Accuracy and actual data
 
 ## Extensions
 We can also create a model to determine if the failure will occur in different time windows, for example, fails in the window (1,w0) or fails in the window (w0+1, w1) days, and so on. This will then be a multi-classification problem, and data will need to be preprocessed accordingly. 
-
-## Who is citing this work?
-
-* In chapter 10 of [Hands-On Artificial Intelligence for IoT](https://www.amazon.it/Hands-Artificial-Intelligence-IoT-techniques/dp/1788836065) book
-	* https://github.com/PacktPublishing/Hands-On-Artificial-Intelligence-for-IoT/tree/master/Chapter10
-* In chapter 7 of [Mobile and Wireless Communications with Practical Use-Case Scenarios](https://www.amazon.com/Wireless-Communications-Practical-Use-Case-Scenarios/dp/1032119020) book
-	* https://www.google.pt/books/edition/Mobile_and_Wireless_Communications_with/lvqhEAAAQBAJ?hl=en&gbpv=1
-* In `Using Recurrent Neural Networks to predict the time for an event` master's thesis (Universitat de Barcelona, Barcelona, Spain). Retrieved from [here](http://diposit.ub.edu/dspace/bitstream/2445/134691/3/memoria.pdf)
-* In `Exploring Cloud Assisted Tiny Machine Learning Application Patterns for PHM Scenario`. Retrieved from [here](https://www.dre.vanderbilt.edu/~gokhale/WWW/papers/PHM21_TinyML_Prognostics.pdf) and [here](https://www.researchgate.net/publication/356519569_The_Future_of_PHM_Could_be_Tiny_under_Cloud_Exploring_Potential_Application_Patterns_of_TinyML_in_PHM_Scenarios)
-
-## References
-
-- [1] Deep Learning for Predictive Maintenance https://github.com/Azure/lstms_for_predictive_maintenance/blob/master/Deep%20Learning%20Basics%20for%20Predictive%20Maintenance.ipynb
-- [2] Predictive Maintenance: Step 2A of 3, train and evaluate regression models https://gallery.azure.ai/Experiment/Predictive-Maintenance-Step-2A-of-3-train-and-evaluate-regression-models-2
-- [3] A. Saxena and K. Goebel (2008). "Turbofan Engine Degradation Simulation Data Set", NASA Ames Prognostics Data Repository (https://ti.arc.nasa.gov/tech/dash/groups/pcoe/prognostic-data-repository/#turbofan), NASA Ames Research Center, Moffett Field, CA 
-- [4] Understanding LSTM Networks http://colah.github.io/posts/2015-08-Understanding-LSTMs/

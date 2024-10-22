@@ -81,11 +81,11 @@ def display(config, train_df, test_df, motors_df, engine_motor_mapping, sensors_
     st.header("Feature Selection Based on Output Correlation")
 
     # Output Type Selection
-    output_options = config.OUTPUT_TYPES_OPTIONS
-    selected_output = st.selectbox("Select Output Variable", output_options)
+    output_col_options = config.OUTPUT_COLUMN_OPTIONS
+    selected_output = st.selectbox("Select Output Variable", output_col_options)
 
     # Calculate correlations with the selected output
-    if config.OUTPUT_TYPE == "regression":
+    if config.TASK_TYPE == "regression":
         # Use Pearson correlation for continuous output
         correlations = train_df[sensor_options + [selected_output]].corr()[selected_output].drop(selected_output)
     else:
