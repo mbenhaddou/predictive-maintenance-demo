@@ -1,8 +1,8 @@
 # predictive_maintenance_app/model/cnn_model.py
 from dataclasses import dataclass
 
-from  predictive_maintenance_app.model.base_model import BaseModel  # Assuming BaseModel is defined appropriately
-from predictive_maintenance_app.utils.config import Config
+from model.base_model import BaseModel  # Assuming BaseModel is defined appropriately
+from utils.config import Config
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 

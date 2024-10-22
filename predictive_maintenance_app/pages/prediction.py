@@ -17,8 +17,8 @@ from utils.helpers import (
     plot_regression_predictions,
     initialize_placeholders
 )
-from predictive_maintenance_app.model.predictive_maintenance_model import PredictiveMaintenanceModel
-from predictive_maintenance_app.model.sequence_generator import SequenceGenerator
+from model.predictive_maintenance_model import PredictiveMaintenanceModel
+from model.sequence_generator import SequenceGenerator
 
 from model.data_loader import DataLoader  # Ensure DataLoader is correctly imported
 from utils.config import Config  # Base Config class

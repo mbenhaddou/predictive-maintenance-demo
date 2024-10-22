@@ -4,7 +4,7 @@ import os
 import numpy as np
 import logging
 from .base_model import BaseModel
-from predictive_maintenance_app.utils.config import Config
+from utils.config import Config
 
 # Set up logging
 logger = logging.getLogger(__name__)

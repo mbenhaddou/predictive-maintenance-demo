@@ -55,7 +55,7 @@ def main():
     # Load motor specifications
     motors_df = load_csv(os.path.join('Dataset', 'motor_specifications.csv'))
 
-    config_dir = "configurations"
+    config_dir = "../configurations"
     os.makedirs(config_dir, exist_ok=True)
     config_file_path = os.path.join(config_dir, "config.json")
 

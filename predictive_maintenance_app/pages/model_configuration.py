@@ -197,7 +197,7 @@ def display():
 
             # Define the configuration file path
             # You can modify this path as needed
-            config_dir = "configurations"
+            config_dir = "../configurations"
             os.makedirs(config_dir, exist_ok=True)
             config_file_path = os.path.join(config_dir, "config.json")
 

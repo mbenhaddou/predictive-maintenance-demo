@@ -1,8 +1,8 @@
 # model_registry.py
 
 from typing import Dict, Any
-from predictive_maintenance_app.model.lstm_model import LSTMModel, LSTMConfig
-from predictive_maintenance_app.model.cnn_model import CNNModel, CNNConfig  # Assuming you have a CNNModel
+from model.lstm_model import LSTMModel, LSTMConfig
+from model.cnn_model import CNNModel, CNNConfig  # Assuming you have a CNNModel
 
 MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "LSTM Binary Classification Model": {

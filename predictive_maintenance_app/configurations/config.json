@@ -16,7 +16,7 @@
     ],
     "OUTPUT_COLUMN": "RUL",
     "MODEL_NAME": "LSTM Regression Model",
-    "DATASET_PATH": "../Dataset/",
+    "DATASET_PATH": "Dataset/",
     "OUTPUT_PATH": "../Output/",
     "ID_COLUMN": "id",
     "TIMESTEP_COLUMN": "cycles",

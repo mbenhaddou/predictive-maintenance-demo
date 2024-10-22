@@ -5,7 +5,7 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, label_binarize
-from predictive_maintenance_app.model.preprocessing import *
+from model.preprocessing import *
 import logging
 
 # Initialize logger

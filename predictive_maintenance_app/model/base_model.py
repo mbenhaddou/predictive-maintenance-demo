@@ -8,7 +8,7 @@ from sklearn.metrics import r2_score
 import os
 import numpy as np
 
-from predictive_maintenance_app1.utils.config import Config
+from utils.config import Config
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -121,13 +121,13 @@ class BaseModel(ABC):
 
             # Handle placeholders
             if cb_type == "ModelCheckpoint":
-                # Replace 'load_path' placeholder with actual model path
-                filepath = cb_params.get('load_path')
-                if filepath == "{model_path}":
-                    cb_params['load_path'] = self.config.get_model_path()
+                # Replace 'filepath' placeholder with actual model path
+                filepath = cb_params.get('filepath')
+                if filepath == "{filepath}":
+                    cb_params['filepath'] = self.config.get_model_path()
                 elif filepath is None:
-                    raise ValueError("ModelCheckpoint callback requires 'load_path' parameter.")
-                # Else, use the provided load_path as is
+                    raise ValueError("ModelCheckpoint callback requires 'filepath' parameter.")
+                # Else, use the provided filepath as is
 
             # Remove the 'type' key before passing to the callback constructor
             cb_params.pop('type')

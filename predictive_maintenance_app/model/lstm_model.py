@@ -6,7 +6,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field
 
 from .base_model import BaseModel
-from predictive_maintenance_app.utils.config import Config
+from utils.config import Config
 
 # Set up logging
 logger = logging.getLogger(__name__)

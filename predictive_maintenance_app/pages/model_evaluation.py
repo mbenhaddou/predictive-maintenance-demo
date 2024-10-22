@@ -28,8 +28,8 @@ from model.sequence_generator import SequenceGenerator  # Adjust import as neces
 from model.data_loader import DataLoader  # Ensure DataLoader is correctly imported
 from utils.helpers import instantiate_config  # Import helper functions if necessary
 from utils.config import Config  # Base Config class
-from predictive_maintenance_app.model.lstm_model import LSTMConfig
-from predictive_maintenance_app.model.cnn_model import CNNConfig
+from model.lstm_model import LSTMConfig
+from model.cnn_model import CNNConfig
 import json
 import os
 

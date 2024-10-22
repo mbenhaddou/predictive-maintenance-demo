@@ -84,7 +84,7 @@ class Config:
         },
         {
             "type": "ModelCheckpoint",
-            "load_path": "{model_path}",  # Placeholder to be replaced
+            "filepath": "{filepath}",  # Placeholder to be replaced
             "monitor": "val_loss",
             "save_best_only": True,
             "verbose": 1,

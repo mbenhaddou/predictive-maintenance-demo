@@ -21,10 +21,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from typing import List
-from predictive_maintenance_app.model.model_registry import MODEL_REGISTRY
-from predictive_maintenance_app.model.lstm_model import LSTMConfig
-from predictive_maintenance_app.model.cnn_model import CNNConfig
-from predictive_maintenance_app.utils.config import Config
+from model.model_registry import MODEL_REGISTRY
+from model.lstm_model import LSTMConfig
+from model.cnn_model import CNNConfig
+from utils.config import Config
 import importlib
 import streamlit as st
 

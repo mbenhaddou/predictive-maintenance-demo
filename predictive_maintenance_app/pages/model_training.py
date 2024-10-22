@@ -7,8 +7,8 @@ from typing import List, Union
 from model.model_registry import MODEL_REGISTRY
 from utils.helpers import instantiate_config
 from utils.config import Config
-from predictive_maintenance_app.model.lstm_model import LSTMConfig
-from predictive_maintenance_app.model.cnn_model import CNNConfig
+from model.lstm_model import LSTMConfig
+from model.cnn_model import CNNConfig
 from model.callbacks import StreamlitCallback
 from model.predictive_maintenance_model import PredictiveMaintenanceModel
 import plotly.express as px
@@ -230,7 +230,7 @@ def display(train_df: pd.DataFrame, sequence_cols: List[str], nb_features: int):
     # ---------------------------
     st.subheader("2. Prepare Training Data")
     try:
-        from predictive_maintenance_app.model.sequence_generator import SequenceGenerator
+        from model.sequence_generator import SequenceGenerator
 
         seq_gen = SequenceGenerator(
             df=train_df,
@@ -336,7 +336,7 @@ def display(train_df: pd.DataFrame, sequence_cols: List[str], nb_features: int):
             try:
                 # Define the save path, e.g., based on timestamp
                 save_path = config.get_model_path()
-                st.session_state.trained_model.save_full_model(save_path=save_path)
+                st.session_state.trained_model.save_full_model(filepath=save_path)
                 st.success(f"✅ Model saved successfully at `{save_path}`!")
                 # Clear the trained model from session_state
                 st.session_state.trained_model = None
