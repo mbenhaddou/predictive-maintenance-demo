@@ -733,6 +733,10 @@ def run_single_engine_simulation(config, test_df, engine_motor_mapping, motors_d
             key='download_predictions_single_unique'
         )
 
+import plotly.graph_objects as go
+import streamlit as st
+import numpy as np
+import pandas as pd
 
 def run_multiple_engines_simulation(config, test_df, engine_motor_mapping, motors_df, sensors_df, sequence_cols,
                                     nb_features, pm_model):
@@ -931,10 +935,6 @@ def run_multiple_engines_simulation(config, test_df, engine_motor_mapping, motor
 
         # Create a DataFrame for All Predictions (optional aggregation)
         # This section can be customized based on requirements
-import plotly.graph_objects as go
-import streamlit as st
-import numpy as np
-import pandas as pd
 
 def process_engine_prediction(engine_id, cycle_idx, engine_data, placeholders, config,
                               selected_features=None, feature_descriptions=None,
@@ -1102,6 +1102,7 @@ def process_engine_prediction(engine_id, cycle_idx, engine_data, placeholders, c
                 engine_id=engine_id,
                 cycle_num=cycle_num,
                 health_percentage=health_percentage,
+                range_values=[0, 100],
                 config=config,
                 placeholder=placeholders['prediction_placeholder']
             )
@@ -1123,7 +1124,7 @@ def create_circular_health_indicator(health_percentage, status_text, color, engi
     Parameters:
     - health_percentage (float): Health percentage (0-100).
     - status_text (str): Status text ('Healthy', 'Warning', 'Critical').
-    - color (str): Color of the arc ('green', 'yellow', 'red').
+    - color (str): Color of the arc (e.g., theme's primary color).
     - engine_id (str/int): The ID of the engine.
     - cycle_num (int/str): Current cycle number.
 
@@ -1132,6 +1133,12 @@ def create_circular_health_indicator(health_percentage, status_text, color, engi
     """
     import plotly.graph_objects as go
     import numpy as np
+    import streamlit as st
+
+    # Access theme colors from session state
+    text_color = st.session_state.get('textColor', '#000000')  # Default to black if not set
+    background_color = st.session_state.get('backgroundColor', '#FFFFFF')  # Default to white
+    secondary_background_color = st.session_state.get('secondaryBackgroundColor', '#F0F2F6')  # Default
 
     # Calculate the angle for the arc (in radians)
     angle = (health_percentage / 100) * 360
@@ -1143,18 +1150,22 @@ def create_circular_health_indicator(health_percentage, status_text, color, engi
     fig = go.Figure()
 
     # Add the background circle outline
-    fig.add_shape(type="circle",
-                  x0=0, y0=0,
-                  x1=2, y1=2,
-                  line=dict(color="lightgray", width=10))
+    fig.add_shape(
+        type="circle",
+        x0=0, y0=0,
+        x1=2, y1=2,
+        line=dict(color=secondary_background_color, width=5),
+    )
 
     # Add the health arc
     fig.add_trace(go.Scatter(
         x=x,
         y=y,
         mode='lines',
-        line=dict(color=color, width=10),
-        name='Health'
+        line=dict(color=color, width=5),
+        name='Health',
+        hoverinfo='skip',
+        showlegend=False,
     ))
 
     # Add percentage annotation
@@ -1162,7 +1173,7 @@ def create_circular_health_indicator(health_percentage, status_text, color, engi
         text=f"{health_percentage:.1f}%",
         x=1,
         y=1.2,
-        font=dict(size=20, color='black'),
+        font=dict(size=20, color=text_color),
         showarrow=False,
         xref="x",
         yref="y",
@@ -1176,7 +1187,7 @@ def create_circular_health_indicator(health_percentage, status_text, color, engi
         text=f"{status_text}",
         x=1,
         y=0.8,
-        font=dict(size=16, color='black'),
+        font=dict(size=16, color=text_color),
         showarrow=False,
         xref="x",
         yref="y",
@@ -1187,16 +1198,30 @@ def create_circular_health_indicator(health_percentage, status_text, color, engi
 
     # Set the layout to ensure the circle remains perfectly circular
     fig.update_layout(
-        xaxis=dict(range=[0, 2], showgrid=False, zeroline=False, visible=False, scaleanchor="y", scaleratio=1),
-        yaxis=dict(range=[0, 2], showgrid=False, zeroline=False, visible=False),
+        xaxis=dict(
+            range=[0, 2],
+            showgrid=False,
+            zeroline=False,
+            visible=False,
+            scaleanchor="y",
+            scaleratio=1
+        ),
+        yaxis=dict(
+            range=[0, 2],
+            showgrid=False,
+            zeroline=False,
+            visible=False
+        ),
         width=200,
         height=200,
         margin=dict(l=0, r=0, t=0, b=0),
-        plot_bgcolor='white'
+        plot_bgcolor=background_color,
+        paper_bgcolor=background_color,
     )
 
     return fig
-def plot_health_history_curve(engine_id, cycle_num, health_percentage, config, placeholder):
+
+def plot_health_history_curve(engine_id, cycle_num, health_percentage, range_values, config, placeholder, threshold_warning=30,threshold_critical=15 ):
     """
     Plots the history of health percentages over cycles.
 
@@ -1222,9 +1247,7 @@ def plot_health_history_curve(engine_id, cycle_num, health_percentage, config, p
     history = st.session_state['health_history'][engine_id]
     cycles_history = list(range(1, len(history) + 1))
 
-    # Define thresholds
-    threshold_warning = getattr(config, 'WARNING_THRESHOLD', 30)  # e.g., 30%
-    threshold_critical = getattr(config, 'CRITICAL_THRESHOLD', 15)  # e.g., 15%
+
 
     # Create the figure
     fig = go.Figure()
@@ -1249,7 +1272,7 @@ def plot_health_history_curve(engine_id, cycle_num, health_percentage, config, p
         title=f"Health Percentage Over Time - Engine {engine_id}",
         xaxis_title='Cycle',
         yaxis_title='Health Percentage (%)',
-        yaxis=dict(range=[0, 100]),
+        yaxis=dict(range=range_values),
         showlegend=False,
         height=200,
         margin=dict(l=40, r=40, t=40, b=40)
