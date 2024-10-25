@@ -16,53 +16,35 @@ import json
 import os
 from datetime import datetime
 
-def load_configuration(config_file_path: str) -> Union[LSTMConfig, CNNConfig]:
+def load_configuration(config_file_path: str):
     """
-    Load the configuration from a JSON file and instantiate the appropriate Config subclass.
-
-    Args:
-        config_file_path (str): Path to the configuration JSON file.
-
-    Returns:
-        Union[LSTMConfig, CNNConfig]: An instance of the appropriate Config subclass.
-
-    Raises:
-        FileNotFoundError: If the configuration file does not exist.
-        ValueError: If the config_class is unsupported or missing.
+    Load the configuration from a JSON file and return a config object.
     """
     if not os.path.isfile(config_file_path):
-        raise FileNotFoundError(f"Configuration file '{config_file_path}' does not exist.")
+        st.error(f"Configuration file `{config_file_path}` does not exist.")
+        return None
 
     with open(config_file_path, 'r') as f:
         config_data = json.load(f)
 
+    # Determine the config class from the saved data
     config_class_name = config_data.get("config_class")
-    model_name = config_data.get("MODEL_NAME")
-
     if not config_class_name:
-        raise ValueError("The configuration file is missing the 'config_class' field.")
+        st.error("Config class name not found in the configuration file.")
+        return None
 
-    # Instantiate the appropriate Config subclass
+    # Instantiate the appropriate configuration class
     if config_class_name == "LSTMConfig":
         config = LSTMConfig()
     elif config_class_name == "CNNConfig":
         config = CNNConfig()
     else:
-        raise ValueError(f"Unsupported config_class '{config_class_name}' in configuration file.")
+        st.error(f"Unsupported configuration class: {config_class_name}")
+        return None
 
-    # Remove keys that are not part of the Config subclass to avoid unexpected attributes
-    ignored_keys = ["config_class", "MODEL_NAME"]
-    for key, value in config_data.items():
-        if key in ignored_keys:
-            continue
-        if hasattr(config, key):
-            setattr(config, key, value)
-        else:
-            st.warning(f"Ignoring unknown configuration parameter: {key}")
-
-    # Assign the MODEL_NAME to the config if needed
-    config.MODEL_NAME = model_name
-
+    # Update the config object with the loaded data
+    config.update_from_dict(config_data)
+    st.success(f"Configuration loaded from `{config_file_path}`.")
     return config
 
 def get_saved_models(output_dir='models/'):

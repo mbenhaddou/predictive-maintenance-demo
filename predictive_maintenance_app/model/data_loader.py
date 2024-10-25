@@ -70,14 +70,6 @@ class DataLoader:
         else:
             raise ValueError(f"Output column '{self.output_column}' has non-numeric values, which is unsupported.")
 
-    def prepare_data(self, drop_sensors, remaining_sensors, alpha):
-        self.train_df = add_operating_condition(self.train_df.drop(drop_sensors, axis=1))
-        self.test_df = add_operating_condition(self.test_df.drop(drop_sensors, axis=1))
-
-        self.train_df, X_test_interim = condition_scaler(self.train_df, self.test_df, remaining_sensors)
-
-        self.train_df = exponential_smoothing(self.train_df, remaining_sensors, 0, alpha)
-        self.test_df = exponential_smoothing(X_test_interim, remaining_sensors, 0, alpha)
 
 
 
@@ -117,19 +109,26 @@ class DataLoader:
         self.train_df = self._add_RUL(self.train_df)
         self.train_df = self._generate_labels(self.train_df)
         # Normalize training data
-        self.train_df, self.scaler = self._normalize(self.train_df)
+        #self.train_df, self.scaler = self._normalize(self.train_df)
         # Normalize test data
-        self.test_df, _ = self._normalize(self.test_df, self.scaler)
+       # self.test_df, _ = self._normalize(self.test_df, self.scaler)
         # Prepare test data
         self.test_df = self._prepare_test_df()
         # Define sequence columns
         sensor_cols = [f's{i}' for i in range(1, 22)]
-        self.sequence_cols = ['voltage_input', 'current_limit', 'speed_control', 'cycle',
-            's2', 's3', 's4', 's7', 's8', 's9',
+        self.remaining_sensors=[ 's2', 's3', 's4', 's7', 's8', 's9',
             's11', 's12', 's13', 's14', 's15', 's17', 's20', 's21'
         ]
+        self.sequence_cols = ['voltage_input', 'current_limit', 'speed_control', 'cycle']+self.remaining_sensors
 
         self.nb_features = len(self.sequence_cols)
+        self.train_df = add_operating_condition(self.train_df)
+        self.test_df = add_operating_condition(self.test_df)
+
+        self.train_df, X_test_interim = condition_scaler(self.train_df, self.test_df, self.remaining_sensors)
+
+        self.train_df = exponential_smoothing(self.train_df, self.remaining_sensors, 0, self.config.SMOOTHING_FACTOR)
+        self.test_df = exponential_smoothing(X_test_interim, self.remaining_sensors, 0, self.config.SMOOTHING_FACTOR)
 
 
     def _add_RUL(self, df):

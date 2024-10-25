@@ -36,7 +36,6 @@ class LSTMConfig(Config):
     # ---------------------------
     EPOCHS: int = 2
     BATCH_SIZE: int = 64
-    SMOOTHING_FACTOR: float = 0.1
 
     def __post_init__(self):
         # Ensure that the number of LSTM units matches the number of dropout rates

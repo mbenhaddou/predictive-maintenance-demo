@@ -103,9 +103,10 @@ def main():
             key="preset_color",
             options=range(len(preset_colors)),
             format_func=lambda idx: preset_colors[idx][0],
-            on_change=on_preset_color_selected
+            on_change=on_preset_color_selected,
+            index=1
         )
-
+        on_preset_color_selected()
         if st.button("🎨 Generate a random color scheme 🎲"):
             primary_color, text_color, basic_background, secondary_background = utils.theme.generate_color_scheme()
             set_color('primaryColor', primary_color)
@@ -131,7 +132,7 @@ def main():
     # Load motor specifications
     motors_df = load_csv(os.path.join('Dataset', 'motor_specifications.csv'))
 
-    config_dir = "../configurations"
+    config_dir = "configurations"
     os.makedirs(config_dir, exist_ok=True)
     config_file_path = os.path.join(config_dir, "config.json")
 

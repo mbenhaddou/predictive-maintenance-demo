@@ -1,4 +1,5 @@
 # pages/model_evaluation.py
+from datetime import datetime
 
 import streamlit as st
 import numpy as np
@@ -35,7 +36,6 @@ import os
 
 def load_configuration(config_file_path: str) -> Config:
     """
-    Load the configuration from a JSON file and instantiate the appropriate Config subclass.
 
     Args:
         config_file_path (str): Path to the configuration JSON file.
@@ -217,7 +217,7 @@ def display():
             y_pred_probs = pm_model.model.predict(sequences)
             y_pred = y_pred_probs.argmax(axis=1)
         elif config.MODEL_TYPE == 'regression':
-            y_pred = pm_model.model.predict(sequences).flatten()
+            y_pred = pm_model.model.predict(np.array(sequences).astype(np.float32)).flatten()
         else:
             st.error(f"Unsupported MODEL_TYPE '{config.MODEL_TYPE}'.")
             st.stop()

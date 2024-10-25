@@ -16,8 +16,8 @@
     ],
     "OUTPUT_COLUMN": "RUL",
     "MODEL_NAME": "LSTM Regression Model",
-    "DATASET_PATH": "Dataset/",
-    "OUTPUT_PATH": "Output/",
+    "DATASET_PATH": "../Dataset/",
+    "OUTPUT_PATH": "../Output/",
     "ID_COLUMN": "id",
     "TIMESTEP_COLUMN": "cycles",
     "SEQUENCE_LENGTH": 30,
@@ -81,7 +81,7 @@
     "USE_BATCH_NORMALIZATION": false,
     "OPTIMIZER": "adam",
     "LEARNING_RATE": 0.001,
-    "EPOCHS": 100,
+    "EPOCHS": 2,
     "BATCH_SIZE": 64,
     "config_class": "LSTMConfig"
 }

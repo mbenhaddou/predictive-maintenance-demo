@@ -72,7 +72,7 @@ class Config:
     #----------------------------
     BINARY_THRESHOLD: float = 0.5  # Threshold for binary classification
     REGRESSION_THRESHOLD: int = 20  # Example threshold for regression
-
+    SMOOTHING_FACTOR: float = 0.1
     CALLBACKS_CONFIG: List[Dict[str, Any]] = field(default_factory=lambda: [
         {
             "type": "EarlyStopping",
